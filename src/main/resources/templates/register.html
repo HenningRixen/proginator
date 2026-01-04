@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Registrieren - Programmieren 1</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="auth-body">
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1><i class="fas fa-user-plus"></i> Registrierung</h1>
+            <p>Erstelle einen Account für die Lernplattform</p>
+        </div>
+
+        <div th:if="${error}" class="alert alert-error">
+            <i class="fas fa-exclamation-circle"></i>
+            <span th:text="${error}"></span>
+        </div>
+
+        <form th:action="@{/register}" method="post" class="auth-form">
+            <div class="form-group">
+                <label for="username">
+                    <i class="fas fa-user"></i> Benutzername
+                </label>
+                <input type="text" id="username" name="username"
+                       placeholder="z.B. max.mustermann" required>
+            </div>
+
+            <div class="form-group">
+                <label for="displayName">
+                    <i class="fas fa-id-card"></i> Vollständiger Name
+                </label>
+                <input type="text" id="displayName" name="displayName"
+                       placeholder="Max Mustermann" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">
+                    <i class="fas fa-lock"></i> Passwort
+                </label>
+                <input type="password" id="password" name="password"
+                       placeholder="Mindestens 6 Zeichen" required minlength="6">
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-block">
+                <i class="fas fa-user-plus"></i> Account erstellen
+            </button>
+
+            <div class="auth-links">
+                <a th:href="@{/login}" class="auth-link">
+                    <i class="fas fa-sign-in-alt"></i> Bereits registriert? Einloggen
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>

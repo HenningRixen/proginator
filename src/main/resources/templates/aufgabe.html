@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${exercise.title}"></title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+</head>
+<body>
+<!-- Navigation -->
+<nav class="navbar">
+    <div class="nav-container">
+        <a th:href="@{/lesson/{id}(id=${exercise.lesson.id})}" class="nav-back">
+            <i class="fas fa-arrow-left"></i> Zurück zur Lektion
+        </a>
+        <div class="nav-brand">
+            <i class="fas fa-code"></i>
+            <span>Programmieren 1</span>
+        </div>
+    </div>
+</nav>
+
+<!-- Main Content -->
+<div class="container exercise-container">
+    <!-- Exercise Header -->
+    <div class="exercise-header">
+        <div class="exercise-badges">
+                <span class="badge badge-lesson">
+                    Woche <span th:text="${exercise.lesson.id}"></span>
+                </span>
+            <span class="badge"
+                  th:classappend="${exercise.difficulty == 'EASY'} ? 'badge-easy' :
+                                     ${exercise.difficulty == 'MEDIUM'} ? 'badge-medium' :
+                                     'badge-hard'">
+                    <i class="fas"
+                       th:classappend="${exercise.difficulty == 'EASY'} ? 'fa-star' :
+                                      ${exercise.difficulty == 'MEDIUM'} ? 'fa-star-half-alt' :
+                                      'fa-star'"></i>
+                    <span th:text="${exercise.difficulty}"></span>
+                </span>
+            <span class="badge badge-points">
+                    <i class="fas fa-coins"></i>
+                    <span th:text="${exercise.points} + ' Punkte'"></span>
+                </span>
+        </div>
+
+        <h1 th:text="${exercise.title}"></h1>
+
+        <div class="completion-status" th:if="${completed}">
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i>
+                Diese Aufgabe hast du bereits abgeschlossen!
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Description -->
+    <div class="task-section">
+        <h2><i class="fas fa-question-circle"></i> Aufgabenstellung</h2>
+        <div class="task-card">
+            <div th:utext="${exercise.description}"></div>
+        </div>
+    </div>
+
+    <!-- Starter Code -->
+    <div class="code-section">
+        <h2><i class="fas fa-code"></i> Startcode</h2>
+        <div class="code-card">
+            <div class="code-header">
+                <span>Kopiere diesen Code in dein IntelliJ Projekt</span>
+                <button onclick="copyCode('starterCode')" class="btn-copy">
+                    <i class="fas fa-copy"></i> Kopieren
+                </button>
+            </div>
+            <pre><code class="language-java" id="starterCode" th:text="${exercise.starterCode}"></code></pre>
+        </div>
+    </div>
+
+    <!-- Solution (Collapsible) -->
+    <div class="solution-section">
+        <h2>
+            <i class="fas fa-lightbulb"></i> Musterlösung
+            <small class="solution-hint">(Versuche zuerst selbst, bevor du dir die Lösung anschaust!)</small>
+        </h2>
+        <div class="solution-card">
+            <div class="solution-header">
+                <button onclick="toggleSolution()" class="btn-toggle">
+                    <i class="fas fa-eye"></i>
+                    <span id="toggleText">Lösung anzeigen</span>
+                </button>
+                <button onclick="copyCode('solutionCode')" class="btn-copy">
+                    <i class="fas fa-copy"></i> Kopieren
+                </button>
+            </div>
+            <div id="solutionContent" class="solution-content" style="display: none;">
+                <pre><code class="language-java" id="solutionCode" th:text="${exercise.solution}"></code></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="actions-section">
+        <div class="actions-grid">
+            <form th:action="@{/exercise/{id}/complete(id=${exercise.id})}"
+                  method="post"
+                  th:if="${!completed}">
+                <button type="submit" class="btn-complete">
+                    <i class="fas fa-check-circle"></i> Als erledigt markieren
+                </button>
+            </form>
+
+            <div th:if="${completed}" class="completed-info">
+                <p><i class="fas fa-check-circle" style="color: #4CAF50;"></i>
+                    Aufgabe abgeschlossen am <span th:text="${#dates.format(#dates.createNow(), 'dd.MM.yyyy')}"></span></p>
+            </div>
+
+            <div class="nav-buttons">
+                <a th:href="@{/lesson/{id}(id=${exercise.lesson.id})}" class="btn-secondary">
+                    <i class="fas fa-book"></i> Zurück zur Lektion
+                </a>
+                <a th:if="${nextExercise != null}"
+                   th:href="@{/exercise/{id}(id=${nextExercise})}"
+                   class="btn-next">
+                    <i class="fas fa-arrow-right"></i> Nächste Aufgabe
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/js/main.js"></script>
+<script>
+    function toggleSolution() {
+        const content = document.getElementById('solutionContent');
+        const toggleText = document.getElementById('toggleText');
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+            toggleText.textContent = 'Lösung verstecken';
+        } else {
+            content.style.display = 'none';
+            toggleText.textContent = 'Lösung anzeigen';
+        }
+    }
+
+    function copyCode(elementId) {
+        const codeElement = document.getElementById(elementId);
+        const text = codeElement.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            // Show success message
+            const original = event.target.innerHTML;
+            event.target.innerHTML = '<i class="fas fa-check"></i> Kopiert!';
+            setTimeout(() => {
+                event.target.innerHTML = original;
+            }, 2000);
+        });
+    }
+
+    // Mark as completed via AJAX
+    document.addEventListener('DOMContentLoaded', function() {
+        const completeBtn = document.querySelector('.btn-complete');
+        if (completeBtn) {
+            completeBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                fetch(this.parentElement.action, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({})
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            // Update UI
+                            const actionsSection = document.querySelector('.actions-section');
+                            actionsSection.innerHTML = `
+                                <div class="completed-info">
+                                    <p><i class="fas fa-check-circle" style="color: #4CAF50;"></i>
+                                       Aufgabe erfolgreich abgeschlossen!</p>
+                                </div>
+                                <div class="nav-buttons">
+                                    <a href="/lesson/${exercise.lesson.id}" class="btn-secondary">
+                                        <i class="fas fa-book"></i> Zurück zur Lektion
+                                    </a>
+                                </div>
+                            `;
+
+                            // Show success message
+                            const completionStatus = document.querySelector('.completion-status');
+                            if (completionStatus) {
+                                completionStatus.innerHTML = `
+                                    <div class="alert alert-success">
+                                        <i class="fas fa-check-circle"></i>
+                                        Diese Aufgabe hast du erfolgreich abgeschlossen!
+                                    </div>
+                                `;
+                            }
+                        }
+                    });
+            });
+        }
+    });
+</script>
+</body>
+</html>

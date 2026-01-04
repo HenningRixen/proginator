@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard - Programmieren 1</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+<!-- Navigation -->
+<nav class="navbar">
+    <div class="nav-container">
+        <div class="nav-brand">
+            <i class="fas fa-code"></i>
+            <span>Programmieren 1</span>
+        </div>
+        <div class="nav-user">
+            <i class="fas fa-user-circle"></i>
+            <span th:text="${user.displayName}"></span>
+            <form th:action="@{/logout}" method="post" class="logout-form">
+                <button type="submit" class="btn-logout">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </form>
+        </div>
+    </div>
+</nav>
+
+<!-- Main Content -->
+<div class="container">
+    <!-- Header -->
+    <div class="dashboard-header">
+        <div class="welcome-card">
+            <h1>Willkommen zurück, <span th:text="${user.displayName}"></span>!</h1>
+            <p class="welcome-text">Bereit für die nächste Programmieraufgabe?</p>
+        </div>
+
+        <!-- Overall Progress -->
+        <div class="progress-card">
+            <div class="progress-header">
+                <h3><i class="fas fa-chart-line"></i> Gesamtfortschritt</h3>
+                <span class="progress-text" th:text="${completedCount} + '/' + ${totalCount} + ' Aufgaben'"></span>
+            </div>
+            <div class="progress-bar-large">
+                <div class="progress-fill" th:style="'width: ' + ${overallProgress} + '%;'">
+                    <span th:text="${overallProgress} + '%'"></span>
+                </div>
+            </div>
+            <div class="progress-stats">
+                <div class="stat">
+                    <i class="fas fa-check-circle" style="color: #4CAF50;"></i>
+                    <span th:text="${completedCount} + ' erledigt'"></span>
+                </div>
+                <div class="stat">
+                    <i class="fas fa-clock" style="color: #FF9800;"></i>
+                    <span th:text="${totalCount - completedCount} + ' verbleibend'"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lessons Grid -->
+    <div class="lessons-section">
+        <h2><i class="fas fa-book-open"></i> Lektionen</h2>
+        <p class="section-subtitle">11 Wochen Programmieren 1 - Wähle eine Lektion aus</p>
+
+        <div class="lessons-grid">
+            <div th:each="lesson : ${lessons}" class="lesson-card">
+                <div class="lesson-header">
+                    <div class="lesson-icon">
+                        <i class="fas"
+                           th:classappend="${lesson.id == 1} ? 'fa-tools' :
+                                              ${lesson.id == 2} ? 'fa-keyboard' :
+                                              ${lesson.id == 3} ? 'fa-calculator' :
+                                              ${lesson.id == 4} ? 'fa-project-diagram' :
+                                              ${lesson.id == 5} ? 'fa-layer-group' :
+                                              ${lesson.id == 6} ? 'fa-cogs' :
+                                              ${lesson.id == 7} ? 'fa-cube' :
+                                              ${lesson.id == 8} ? 'fa-sitemap' :
+                                              ${lesson.id == 9} ? 'fa-puzzle-piece' :
+                                              ${lesson.id == 10} ? 'fa-exclamation-triangle' :
+                                              'fa-rocket'"></i>
+                    </div>
+                    <div class="lesson-info">
+                        <h3>Woche <span th:text="${lesson.id}"></span></h3>
+                        <h4 th:text="${lesson.title}"></h4>
+                        <p class="lesson-desc" th:text="${lesson.shortDescription}"></p>
+                    </div>
+                </div>
+
+                <div class="lesson-progress">
+                    <div class="progress-bar-small">
+                        <div class="progress-fill"
+                             th:style="'width: ' + ${lessonProgress.get(lesson.id)} + '%;'"></div>
+                    </div>
+                    <span th:text="${lessonProgress.get(lesson.id)} + '%'"></span>
+                </div>
+
+                <a th:href="@{/lesson/{id}(id=${lesson.id})}" class="btn-lesson">
+                    <i class="fas fa-arrow-right"></i> Lektion starten
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="stats-section">
+        <h2><i class="fas fa-trophy"></i> Deine Statistik</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #e3f2fd;">
+                    <i class="fas fa-calendar-check" style="color: #2196F3;"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 th:text="${completedCount}"></h3>
+                    <p>Abgeschlossene Aufgaben</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #f3e5f5;">
+                    <i class="fas fa-bolt" style="color: #9C27B0;"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 th:text="'Woche ' + ${#lists.size(lessons)}"></h3>
+                    <p>Verfügbare Lektionen</p>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #e8f5e9;">
+                    <i class="fas fa-star" style="color: #4CAF50;"></i>
+                </div>
+                <div class="stat-content">
+                    <h3 th:text="${overallProgress} + '%'"></h3>
+                    <p>Gesamtfortschritt</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer class="footer">
+    <p>© 2024 Universität - Programmieren 1 Lernplattform | Version 1.0</p>
+</footer>
+
+<script src="../js/main.js"></script>
+</body>
+</html>
