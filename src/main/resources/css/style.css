@@ -254,15 +254,11 @@ body {
 
 .progress-card {
     background: white;
-    padding: 30px;
-    border-radius: 15px;
-    box-shadow: var(--card-shadow);
-}
-
-.progress-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    padding: 30px;<dependency>
+        <groupId>com.h2database</groupId>
+        <artifactId>h2</artifactId>
+        <scope>test</scope>
+    </dependency>
     margin-bottom: 20px;
 }
 

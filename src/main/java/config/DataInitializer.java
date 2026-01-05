@@ -76,7 +76,7 @@ public class DataInitializer implements CommandLineRunner {
                     "<h3>Primitive Datentypen</h3><p>Java kennt 8 primitive Datentypen...</p>");
             lessonRepository.save(lesson2);
 
-            // Add more lessons 3-11 similarly...
+            // hier dann die weiteren hinzufügen
 
             System.out.println("Demo data initialized!");
         }
