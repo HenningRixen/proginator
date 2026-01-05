@@ -30,16 +30,7 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        // Create test user
-        if (!userRepository.existsByUsername("test")) {
-            User user = new User();
-            user.setUsername("test");
-            user.setPassword(passwordEncoder.encode("test123"));
-            user.setDisplayName("Test Student");
-            userRepository.save(user);
-        }
-
-        // Create lessons if they don't exist
+        //Nur als beispiel folgende Lektion
         if (lessonRepository.count() == 0) {
             // Lesson 1
             Lesson lesson1 = new Lesson(1L,
@@ -48,14 +39,13 @@ public class DataInitializer implements CommandLineRunner {
                     "<h3>Warum Java?</h3><p>Java ist eine plattformunabhängige Programmiersprache...</p>");
             lessonRepository.save(lesson1);
 
-            // Exercises for lesson 1
+             //Exercises for lesson 1
             Exercise ex1 = new Exercise();
             ex1.setTitle("Hello-World Programm");
             ex1.setDescription("Erstelle ein Java-Programm, das 'Hello World' auf der Konsole ausgibt.");
             ex1.setStarterCode("public class HelloWorld {\n    public static void main(String[] args) {\n        // Dein Code hier\n    }\n}");
             ex1.setSolution("public class HelloWorld {\n    public static void main(String[] args) {\n        System.out.println(\"Hello World!\");\n    }\n}");
             ex1.setDifficulty("EASY");
-            ex1.setPoints(10);
             ex1.setLesson(lesson1);
             exerciseRepository.save(ex1);
 
@@ -65,7 +55,6 @@ public class DataInitializer implements CommandLineRunner {
             ex2.setStarterCode("public class Arguments {\n    public static void main(String[] args) {\n        // args Array verwenden\n    }\n}");
             ex2.setSolution("public class Arguments {\n    public static void main(String[] args) {\n        for (int i = 0; i < args.length; i++) {\n            System.out.println(\"Argument \" + i + \": \" + args[i]);\n        }\n    }\n}");
             ex2.setDifficulty("MEDIUM");
-            ex2.setPoints(15);
             ex2.setLesson(lesson1);
             exerciseRepository.save(ex2);
 

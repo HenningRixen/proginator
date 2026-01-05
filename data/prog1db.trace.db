@@ -1,0 +1,4 @@
+2026-01-05 14:08:22.842393+01:00 jdbc[13]: exception
+org.h2.jdbc.JdbcSQLSyntaxErrorException: Syntax Fehler in SQL Befehl "SELECT * FROM EXERCISE ID [*]ID"
+Syntax error in SQL statement "SELECT * FROM EXERCISE ID [*]ID"; SQL statement:
+SELECT * FROM EXERCISE ID ID [42000-232]

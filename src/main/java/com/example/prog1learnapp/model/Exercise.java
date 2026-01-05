@@ -2,6 +2,7 @@ package com.example.prog1learnapp.model;
 
 import jakarta.persistence.*;
 
+
 @Entity
 public class Exercise {
     @Id
@@ -20,7 +21,6 @@ public class Exercise {
     private String solution;
 
     private String difficulty;
-    private int points;
 
     @ManyToOne
     @JoinColumn(name = "lesson_id")
@@ -45,8 +45,6 @@ public class Exercise {
     public String getDifficulty() { return difficulty; }
     public void setDifficulty(String difficulty) { this.difficulty = difficulty; }
 
-    public int getPoints() { return points; }
-    public void setPoints(int points) { this.points = points; }
 
     public Lesson getLesson() { return lesson; }
     public void setLesson(Lesson lesson) { this.lesson = lesson; }
