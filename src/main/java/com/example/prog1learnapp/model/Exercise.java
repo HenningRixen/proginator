@@ -1,4 +1,4 @@
-package model;
+package com.example.prog1learnapp.model;
 
 import jakarta.persistence.*;
 

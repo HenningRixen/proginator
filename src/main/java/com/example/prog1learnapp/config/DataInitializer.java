@@ -1,11 +1,11 @@
-package config;
+package com.example.prog1learnapp.config;
 
-import model.Lesson;
-import model.Exercise;
-import model.User;
-import repository.LessonRepository;
-import repository.ExerciseRepository;
-import repository.UserRepository;
+import com.example.prog1learnapp.model.Lesson;
+import com.example.prog1learnapp.model.Exercise;
+import com.example.prog1learnapp.model.User;
+import com.example.prog1learnapp.repository.LessonRepository;
+import com.example.prog1learnapp.repository.ExerciseRepository;
+import com.example.prog1learnapp.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;

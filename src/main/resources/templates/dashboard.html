@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>Dashboard - Programmieren 1</title>
-    <link rel="stylesheet" href="../css/style.css">
-    <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="stylesheet" th:href="@{/css/dashboard.css}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -69,20 +69,20 @@
         <div class="lessons-grid">
             <div th:each="lesson : ${lessons}" class="lesson-card">
                 <div class="lesson-header">
-                    <div class="lesson-icon">
-                        <i class="fas"
-                           th:classappend="${lesson.id == 1} ? 'fa-tools' :
-                                              ${lesson.id == 2} ? 'fa-keyboard' :
-                                              ${lesson.id == 3} ? 'fa-calculator' :
-                                              ${lesson.id == 4} ? 'fa-project-diagram' :
-                                              ${lesson.id == 5} ? 'fa-layer-group' :
-                                              ${lesson.id == 6} ? 'fa-cogs' :
-                                              ${lesson.id == 7} ? 'fa-cube' :
-                                              ${lesson.id == 8} ? 'fa-sitemap' :
-                                              ${lesson.id == 9} ? 'fa-puzzle-piece' :
-                                              ${lesson.id == 10} ? 'fa-exclamation-triangle' :
-                                              'fa-rocket'"></i>
-                    </div>
+<!--                    <div class="lesson-icon">-->
+<!--                        <i class="fas"-->
+<!--                           th:classappend="${lesson.id == 1} ? 'fa-tools' :-->
+<!--                                              ${lesson.id == 2} ? 'fa-keyboard' :-->
+<!--                                              ${lesson.id == 3} ? 'fa-calculator' :-->
+<!--                                              ${lesson.id == 4} ? 'fa-project-diagram' :-->
+<!--                                              ${lesson.id == 5} ? 'fa-layer-group' :-->
+<!--                                              ${lesson.id == 6} ? 'fa-cogs' :-->
+<!--                                              ${lesson.id == 7} ? 'fa-cube' :-->
+<!--                                              ${lesson.id == 8} ? 'fa-sitemap' :-->
+<!--                                              ${lesson.id == 9} ? 'fa-puzzle-piece' :-->
+<!--                                              ${lesson.id == 10} ? 'fa-exclamation-triangle' :-->
+<!--                                              'fa-rocket'"></i>-->
+<!--                    </div>-->
                     <div class="lesson-info">
                         <h3>Woche <span th:text="${lesson.id}"></span></h3>
                         <h4 th:text="${lesson.title}"></h4>

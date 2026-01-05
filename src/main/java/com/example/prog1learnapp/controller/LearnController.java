@@ -1,11 +1,11 @@
-package controller;
+package com.example.prog1learnapp.controller;
 
-import model.User;
-import model.Lesson;
-import model.Exercise;
-import repository.UserRepository;
-import repository.LessonRepository;
-import repository.ExerciseRepository;
+import com.example.prog1learnapp.model.User;
+import com.example.prog1learnapp.model.Lesson;
+import com.example.prog1learnapp.model.Exercise;
+import com.example.prog1learnapp.repository.UserRepository;
+import com.example.prog1learnapp.repository.LessonRepository;
+import com.example.prog1learnapp.repository.ExerciseRepository;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;

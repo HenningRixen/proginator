@@ -1,7 +1,7 @@
-package controller;
+package com.example.prog1learnapp.controller;
 
-import model.User;
-import repository.UserRepository;
+import com.example.prog1learnapp.model.User;
+import com.example.prog1learnapp.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;

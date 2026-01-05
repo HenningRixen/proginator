@@ -1,6 +1,6 @@
-package repository;
+package com.example.prog1learnapp.repository;
 
-import model.Exercise;
+import com.example.prog1learnapp.model.Exercise;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 

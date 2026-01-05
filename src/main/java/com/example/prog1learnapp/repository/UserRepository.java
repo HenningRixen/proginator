@@ -1,6 +1,6 @@
-package repository;
+package com.example.prog1learnapp.repository;
 
-import model.User;
+import com.example.prog1learnapp.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
