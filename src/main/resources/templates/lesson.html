@@ -15,7 +15,7 @@
         </a>
         <div class="nav-brand">
             <i class="fas fa-code"></i>
-            <span>Programmieren 1</span>
+            <span>Proginator</span>
         </div>
     </div>
 </nav>
@@ -43,44 +43,43 @@
     </div>
 
     <!-- Exercises List -->
-    <div class="exercises-section">
-        <h2><i class="fas fa-tasks"></i> Aufgaben</h2>
-        <div class="exercises-list">
-            <div th:each="exercise : ${exercises}" class="exercise-card"
-                 th:classappend="${completedIds.contains(exercise.id)} ? 'completed'">
-                <div class="exercise-icon">
-                    <i class="fas fa-star" th:if="${exercise.difficulty} == 'EASY'"></i>
-                    <i class="fas fa-star-half-alt" th:if="${exercise.difficulty} == 'MEDIUM'"></i>
-                    <i class="fas fa-star" th:if="${exercise.difficulty} == 'HARD'"></i>
-                </div>
-                <div class="exercise-info">
-                    <h3 th:text="${exercise.title}"></h3>
-                    <span class="badge badge-easy" th:if="${exercise.difficulty} == 'EASY'">
-                        <span th:text="${exercise.difficulty}"></span>
-                    </span>
-                    <span class="badge badge-medium" th:if="${exercise.difficulty} == 'MEDIUM'">
-                        <span th:text="${exercise.difficulty}"></span>
-                    </span>
-                    <span class="badge badge-hard" th:if="${exercise.difficulty} == 'HARD'">
-                        <span th:text="${exercise.difficulty}"></span>
-                    </span>
-                    <span class="badge badge-points">
-                        <i class="fas fa-coins"></i>
-                        <span th:text="${exercise.points} + ' Punkte'"></span>
-                    </span>
-                </div>
-                <div class="exercise-actions">
-                    <a th:href="@{/exercise/{id}(id=${exercise.id})}" class="btn btn-primary">
-                        <i class="fas fa-arrow-right"></i> Zur Aufgabe
-                    </a>
-                    <span th:if="${completedIds.contains(exercise.id)}" class="completed-label">
-                        <i class="fas fa-check-circle" style="color: #4CAF50;"></i> Erledigt
-                    </span>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+   <div class="exercises-section">
+       <h2><i class="fas fa-tasks"></i> Aufgaben</h2>
+       <div class="exercises-list">
+           <div th:each="exercise : ${exercises}" class="exercise-card"
+                th:classappend="${completedIds.contains(exercise.id)} ? 'completed'">
+               <div class="exercise-main">
+                   <div class="exercise-icon">
+                       <i class="fas fa-star" th:if="${exercise.difficulty} == 'EASY'"></i>
+                       <i class="fas fa-star-half-alt" th:if="${exercise.difficulty} == 'MEDIUM'"></i>
+                       <i class="fas fa-star" th:if="${exercise.difficulty} == 'HARD'"></i>
+                   </div>
+                   <div class="exercise-details">
+                       <h3 th:text="${exercise.title}"></h3>
+                       <div class="exercise-badges">
+                           <span class="badge badge-easy" th:if="${exercise.difficulty} == 'EASY'">
+                               <span th:text="${exercise.difficulty}"></span>
+                           </span>
+                           <span class="badge badge-medium" th:if="${exercise.difficulty} == 'MEDIUM'">
+                               <span th:text="${exercise.difficulty}"></span>
+                           </span>
+                           <span class="badge badge-hard" th:if="${exercise.difficulty} == 'HARD'">
+                               <span th:text="${exercise.difficulty}"></span>
+                           </span>
+                       </div>
+                   </div>
+               </div>
+               <div class="exercise-actions">
+                   <a th:href="@{/exercise/{id}(id=${exercise.id})}" class="btn btn-primary">
+                       <i class="fas fa-arrow-right"></i> Zur Aufgabe
+                   </a>
+                   <span th:if="${completedIds.contains(exercise.id)}" class="completed-label">
+                       <i class="fas fa-check-circle"></i> Erledigt
+                   </span>
+               </div>
+           </div>
+       </div>
+   </div>
 
 <footer class="footer">
     <p>© 2024 Universität - Programmieren 1 Lernplattform | Version 1.0</p>

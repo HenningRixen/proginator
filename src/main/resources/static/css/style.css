@@ -902,4 +902,46 @@ code {
     .exercise-actions {
         width: 100%;
     }
+    .exercise-card {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 16px;
+        border-radius: 8px;
+        background: #fff;
+        margin-bottom: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .exercise-main {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    .exercise-icon {
+        font-size: 2rem;
+        color: #fbc02d;
+        min-width: 40px;
+        text-align: center;
+    }
+    .exercise-details {
+        flex: 1;
+    }
+    .exercise-badges {
+        display: flex;
+        gap: 8px;
+        margin-top: 4px;
+    }
+    .exercise-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 8px;
+    }
+    .completed-label {
+        color: #4CAF50;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
 }
