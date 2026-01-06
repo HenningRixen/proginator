@@ -2,7 +2,7 @@
     --primary: #003B46;
     --primary-dark: #07575B;
     --secondary: #66A5AD;
-    --success: #66A5AD;
+    --success: #3CB371;
     --warning: #07575B;
     --danger: #003B46;
     --light: #C4DFE6;
@@ -13,6 +13,7 @@
     --transition: all 0.3s ease;
 }
 
+/* --- Grundlegende Resets und Body --- */
 * {
     margin: 0;
     padding: 0;
@@ -26,7 +27,16 @@ body {
     color: var(--dark);
 }
 
-/* Auth Pages */
+/* --- Überschriften kontrastreicher und mit Abstand --- */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--primary);
+    font-weight: bold;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    letter-spacing: 0.02em;
+}
+
+/* --- Auth Pages --- */
 .auth-body {
     background: linear-gradient(135deg, #003B46 0%, #66A5AD 100%);
     display: flex;
@@ -161,7 +171,7 @@ body {
     padding-top: 20px;
 }
 
-/* Main Layout */
+/* --- Main Layout --- */
 .navbar {
     background: var(--light);
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -225,7 +235,7 @@ body {
     padding: 30px 20px;
 }
 
-/* Dashboard Styles */
+/* --- Dashboard Styles --- */
 .dashboard-header {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -466,411 +476,107 @@ body {
     margin-top: 40px;
 }
 
-/* Lesson Page Styles */
-.nav-back {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--primary);
-    text-decoration: none;
-    font-weight: 500;
-}
-
-.nav-back:hover {
-    text-decoration: underline;
-}
-
-.lesson-header {
-    background: white;
-    padding: 30px;
-    border-radius: 15px;
-    margin-bottom: 30px;
-    text-align: center;
-}
-
-.lesson-badge {
-    display: inline-block;
-    background: var(--primary);
-    color: var(--light);
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-weight: 600;
-    margin-bottom: 15px;
-    font-size: 14px;
-}
-
-.lesson-header h1 {
-    color: var(--dark);
-    font-size: 36px;
-    margin-bottom: 10px;
-}
-
-.lesson-subtitle {
-    color: var(--gray);
-    font-size: 18px;
-}
-
-.lesson-content {
-    margin-bottom: 40px;
-}
-
-.content-card {
-    background: white;
-    padding: 30px;
-    border-radius: 15px;
-    box-shadow: var(--card-shadow);
-}
-
-.content-card h2 {
-    color: var(--dark);
-    margin-bottom: 20px;
-    font-size: 24px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
+/* --- Aufgabenübersicht (modernes Grid) --- */
 .exercises-list {
-    background: white;
-    border-radius: 15px;
-    overflow: hidden;
-    box-shadow: var(--card-shadow);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 24px;
+    margin: 32px 0 0 0;
+    padding: 0;
+    list-style: none;
+    background: none;
+    box-shadow: none;
+    border-radius: 0;
 }
 
-.exercise-item {
+.exercise-card {
+    background: #fff !important;
+    border: 1px solid #e0e7ef;
+    border-radius: 14px;
+    box-shadow: 0 2px 8px rgba(0,59,70,0.06);
+    padding: 24px 20px 20px 20px;
     display: flex;
-    align-items: center;
-    padding: 25px 30px;
-    border-bottom: 1px solid var(--border);
-    gap: 20px;
-    transition: var(--transition);
+    flex-direction: column;
+    align-items: flex-start;
+    transition: box-shadow 0.2s, border 0.2s;
+    position: relative;
+    margin: 0;
+    min-height: 160px;
 }
 
-.exercise-item:hover {
-    background-color: var(--light);
-}
-
-.exercise-item:last-child {
-    border-bottom: none;
-}
-
-.exercise-icon {
-    width: 50px;
-    height: 50px;
-    background: linear-gradient(135deg, #003B46 0%, #66A5AD 100%);
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--light);
-    font-size: 20px;
-}
-
-.exercise-content {
-    flex: 1;
-}
-
-.exercise-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
+.exercise-card:hover {
+    box-shadow: 0 4px 16px rgba(0,59,70,0.12);
+    border-color: var(--secondary);
+    background: #f3f9fa;
 }
 
 .exercise-header h3 {
-    color: var(--dark);
-    font-size: 18px;
+    font-size: 1.15em;
+    font-weight: 600;
+    color: var(--primary-dark);
+    margin-bottom: 8px;
 }
 
 .exercise-meta {
-    display: flex;
-    gap: 15px;
-    align-items: center;
+    font-size: 0.95em;
+    color: #4a6fa1;
+    margin-bottom: 12px;
 }
 
-.badge {
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
+.exercise-item.completed {
+    border-color: #3CB371;
+    background: linear-gradient(90deg, #e6f9f0 60%, #f8fafd 100%);
 }
 
-.badge-easy {
-    background-color: #e6f7f5;
-    color: #07575B;
-}
-
-.badge-medium {
-    background-color: #f3f9fa;
-    color: #003B46;
-}
-
-.badge-hard {
-    background-color: #fbeeee;
-    color: #003B46;
-}
-
-.points {
-    color: var(--gray);
-    font-size: 14px;
+.exercise-item.completed::after {
+    content: '✓';
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    background: #3CB371;
+    color: #fff;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
-    gap: 5px;
-}
-
-.exercise-item p {
-    color: var(--gray);
-    font-size: 14px;
-    line-height: 1.5;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.1em;
+    box-shadow: 0 2px 6px rgba(60,179,113,0.12);
 }
 
 .exercise-actions {
-    min-width: 120px;
+    margin-top: auto;
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
 }
 
+.exercise-actions a,
 .btn-exercise {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 10px 20px;
+    background: var(--primary);
+    color: #fff;
+    padding: 7px 18px;
     border-radius: 8px;
-    font-weight: 500;
     text-decoration: none;
-    transition: var(--transition);
+    font-weight: 500;
+    transition: background 0.2s;
     border: none;
-    cursor: pointer;
-    font-size: 14px;
-    width: 100%;
 }
 
-.btn-start {
-    background-color: var(--primary);
-    color: var(--light);
+.exercise-actions a:hover,
+.btn-exercise:hover {
+    background: var(--primary-dark);
 }
 
-.btn-start:hover {
-    background-color: var(--primary-dark);
+/* Abstand zwischen Überschrift und Aufgabenliste */
+.lesson-title {
+    margin-bottom: 18px;
 }
 
-.btn-completed {
-    background-color: var(--success);
-    color: var(--light);
-}
-
-.btn-completed:hover {
-    background-color: #4fa7b3;
-}
-
-.lesson-navigation {
-    text-align: center;
-    margin-top: 40px;
-}
-
-.btn-secondary {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 24px;
-    background-color: var(--gray);
-    color: var(--light);
-    text-decoration: none;
-    border-radius: 8px;
-    font-weight: 500;
-    transition: var(--transition);
-}
-
-.btn-secondary:hover {
-    background-color: var(--primary-dark);
-}
-
-/* Exercise Page Styles */
-.exercise-container {
-    max-width: 800px;
-}
-
-.exercise-header {
-    background: white;
-    padding: 30px;
-    border-radius: 15px;
-    margin-bottom: 30px;
-    text-align: center;
-}
-
-.exercise-badges {
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-}
-
-.badge-lesson {
-    background-color: #e6f7f5;
-    color: #003B46;
-}
-
-.badge-points {
-    background-color: #f3f9fa;
-    color: #07575B;
-}
-
-.exercise-header h1 {
-    color: var(--dark);
-    font-size: 32px;
-    margin-bottom: 20px;
-}
-
-.task-section, .code-section, .solution-section {
-    margin-bottom: 40px;
-}
-
-.task-section h2, .code-section h2, .solution-section h2 {
-    color: var(--dark);
-    margin-bottom: 15px;
-    font-size: 24px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.solution-hint {
-    font-size: 14px;
-    color: var(--gray);
-    font-weight: normal;
-    margin-left: 10px;
-}
-
-.task-card, .code-card, .solution-card {
-    background: white;
-    border-radius: 15px;
-    overflow: hidden;
-    box-shadow: var(--card-shadow);
-}
-
-.task-card {
-    padding: 25px;
-}
-
-.code-header, .solution-header {
-    background-color: var(--light);
-    padding: 15px 25px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--border);
-}
-
-.code-header span, .solution-header span {
-    color: var(--gray);
-    font-size: 14px;
-}
-
-.btn-copy, .btn-toggle {
-    padding: 8px 16px;
-    background-color: white;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    font-size: 14px;
-    cursor: pointer;
-    transition: var(--transition);
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.btn-copy:hover, .btn-toggle:hover {
-    background-color: var(--light);
-}
-
-pre {
-    margin: 0;
-    padding: 25px;
-    overflow-x: auto;
-    background-color: var(--light);
-}
-
-code {
-    font-family: 'Courier New', monospace;
-    font-size: 14px;
-}
-
-.hljs {
-    background: transparent !important;
-}
-
-.solution-content {
-    padding: 0;
-}
-
-.actions-section {
-    background: white;
-    padding: 30px;
-    border-radius: 15px;
-    box-shadow: var(--card-shadow);
-}
-
-.actions-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.btn-complete {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 15px 30px;
-    background-color: var(--success);
-    color: var(--light);
-    border: none;
-    border-radius: 10px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: var(--transition);
-    width: 100%;
-    justify-content: center;
-}
-
-.btn-complete:hover {
-    background-color: #4fa7b3;
-    transform: translateY(-2px);
-}
-
-.completed-info {
-    text-align: center;
-    padding: 20px;
-    background-color: #e6f7f5;
-    border-radius: 10px;
-    color: #07575B;
-}
-
-.nav-buttons {
-    display: flex;
-    justify-content: space-between;
-    gap: 20px;
-}
-
-.btn-next {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 24px;
-    background-color: var(--primary);
-    color: var(--light);
-    text-decoration: none;
-    border-radius: 8px;
-    font-weight: 500;
-    transition: var(--transition);
-}
-
-.btn-next:hover {
-    background-color: var(--primary-dark);
-}
-
-/* Responsive */
+/* --- Responsive Anpassungen für Aufgabenübersicht --- */
 @media (max-width: 768px) {
     .dashboard-header {
         grid-template-columns: 1fr;
@@ -888,17 +594,12 @@ code {
         flex-direction: column;
     }
 
-    .exercise-item {
-        flex-direction: column;
-        text-align: center;
-        gap: 15px;
+    .exercises-list {
+        grid-template-columns: 1fr;
+        gap: 16px;
     }
 
-    .exercise-actions {
-        width: 100%;
-    }
-    .exercise-card {
-        display: flex;
+    .exercise-item {
         flex-direction: column;
         gap: 8px;
         padding: 16px;
@@ -906,37 +607,141 @@ code {
         background: #fff;
         margin-bottom: 16px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        min-height: unset;
     }
-    .exercise-main {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-    }
-    .exercise-icon {
-        font-size: 2rem;
-        color: var(--secondary);
-        min-width: 40px;
-        text-align: center;
-    }
-    .exercise-details {
-        flex: 1;
-    }
-    .exercise-badges {
-        display: flex;
+
+    .exercise-header {
+        flex-direction: column;
+        align-items: flex-start;
         gap: 8px;
-        margin-top: 4px;
     }
+
     .exercise-actions {
-        display: flex;
-        align-items: center;
+        width: 100%;
+        justify-content: flex-end;
         gap: 12px;
         margin-top: 8px;
     }
-    .completed-label {
-        color: var(--success);
-        font-weight: bold;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-    }
 }
+/* ===================================================== */
+/* === FIX: Lesson-Content nicht abdunkeln ============= */
+/* ===================================================== */
+
+.lesson-container {
+    position: relative;
+    z-index: 1;
+}
+
+/* falls .container ein Overlay (::before / ::after) hat */
+.lesson-container::before,
+.lesson-container::after {
+    display: none;
+}
+/* ===================================================== */
+/* === Lesson-Seite: Texte außerhalb der Cards ========= */
+/* ===================================================== */
+
+/* Haupttitel */
+.lesson-container .lesson-header h1 {
+    color: #ffffff;
+    text-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+}
+/* Kurzbeschreibung */
+.lesson-container .lesson-desc {
+    color: var(--light);
+}
+
+/* Lesson-Content (HTML aus DB) */
+.lesson-container .lesson-content {
+    color: var(--light);
+}
+
+.lesson-container .lesson-content p,
+.lesson-container .lesson-content li,
+.lesson-container .lesson-content span {
+    color: var(--light);
+    line-height: 1.7;
+}
+
+/* Aufgaben-Überschrift */
+.lesson-container .exercises-section > h2 {
+    color: #ffffff;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.lesson-container .exercises-section > h2 i {
+    color: #ffffff;
+}
+/* Cards bleiben unverändert */
+.lesson-container .exercise-card {
+    background: #ffffff;
+    color: var(--dark);
+}
+.lesson-container .lesson-meta,
+.lesson-container .lesson-meta span,
+.lesson-container .lesson-meta a {
+    color: var(--light);
+}
+
+/* Section-Überschriften im Lesson-Content (z. B. "Warum Java?") */
+.lesson-container .lesson-content h2,
+.lesson-container .lesson-content h3 {
+    color: #ffffff;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+/* ===================================================== */
+/* === Exercise-Seite: Texte außerhalb der Cards ======= */
+/* ===================================================== */
+
+/* Exercise-Container nach vorne holen */
+.exercise-container {
+    position: relative;
+    z-index: 1;
+}
+
+/* Meta / Badge-Zeile (Woche, Difficulty) */
+.exercise-container .exercise-badges,
+.exercise-container .exercise-badges span,
+.exercise-container .exercise-badges i {
+    color: var(--light);
+}
+
+/* Haupttitel der Aufgabe */
+.exercise-container .exercise-header h1 {
+    color: #ffffff;
+    text-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+}
+
+/* Section-Überschriften (Aufgabenstellung, Starter-Code, Lösung) */
+.exercise-container .task-section > h2,
+.exercise-container .code-section > h2,
+.exercise-container .solution-section > h2,
+.exercise-container details summary {
+    color: #ffffff;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.exercise-container .task-section > h2 i,
+.exercise-container .code-section > h2 i,
+.exercise-container .solution-section > h2 i,
+.exercise-container details summary i {
+    color: #ffffff;
+}
+
+/* Text außerhalb der Task-Card */
+.exercise-container .task-section {
+    color: var(--light);
+}
+
+/* ===================================================== */
+/* === ABSICHERUNG: Cards & Code bleiben unverändert === */
+/* ===================================================== */
+
+.exercise-container .task-card,
+.exercise-container pre,
+.exercise-container code {
+    color: var(--dark);
+}
+
+
+

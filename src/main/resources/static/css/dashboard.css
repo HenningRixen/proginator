@@ -77,3 +77,22 @@
 .streak-indicator i {
     color: #003B46;
 }
+/* ===================================================== */
+/* === Kontrast-Fix Dashboard (Gradient-Hintergrund) === */
+/* ===================================================== */
+
+.lessons-section h2,
+.stats-section h2,
+.section-subtitle {
+    color: #ffffff;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* Cards behalten dunklen Text */
+.welcome-card,
+.progress-card,
+.lesson-card,
+.stat-card {
+    color: var(--dark);
+}
+
