@@ -1,16 +1,15 @@
-/* style.css */
 :root {
-    --primary: #4361ee;
-    --primary-dark: #3a56d4;
-    --secondary: #7209b7;
-    --success: #4CAF50;
-    --warning: #FF9800;
-    --danger: #f72585;
-    --light: #f8f9fa;
-    --dark: #212529;
-    --gray: #6c757d;
-    --border: #dee2e6;
-    --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --primary: #003B46;
+    --primary-dark: #07575B;
+    --secondary: #66A5AD;
+    --success: #66A5AD;
+    --warning: #07575B;
+    --danger: #003B46;
+    --light: #C4DFE6;
+    --dark: #003B46;
+    --gray: #66A5AD;
+    --border: #66A5AD;
+    --card-shadow: 0 4px 6px rgba(0, 59, 70, 0.08);
     --transition: all 0.3s ease;
 }
 
@@ -22,14 +21,14 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #003B46 0%, #66A5AD 100%);
     min-height: 100vh;
     color: var(--dark);
 }
 
 /* Auth Pages */
 .auth-body {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #003B46 0%, #66A5AD 100%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -73,15 +72,15 @@ body {
 }
 
 .alert-error {
-    background-color: #fee;
+    background-color: #fbeeee;
     border-left: 4px solid var(--danger);
-    color: #c00;
+    color: #003B46;
 }
 
 .alert-success {
-    background-color: #e8f5e9;
+    background-color: #e6f7f5;
     border-left: 4px solid var(--success);
-    color: #2e7d32;
+    color: #07575B;
 }
 
 .form-group {
@@ -107,7 +106,7 @@ body {
 .form-group input:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+    box-shadow: 0 0 0 3px rgba(0, 59, 70, 0.1);
 }
 
 .btn {
@@ -126,7 +125,7 @@ body {
 
 .btn-primary {
     background-color: var(--primary);
-    color: white;
+    color: var(--light);
 }
 
 .btn-primary:hover {
@@ -164,7 +163,7 @@ body {
 
 /* Main Layout */
 .navbar {
-    background: white;
+    background: var(--light);
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     padding: 15px 0;
     position: sticky;
@@ -217,7 +216,7 @@ body {
 }
 
 .btn-logout:hover {
-    background-color: #f8f9fa;
+    background-color: var(--light);
 }
 
 .container {
@@ -254,11 +253,7 @@ body {
 
 .progress-card {
     background: white;
-    padding: 30px;<dependency>
-        <groupId>com.h2database</groupId>
-        <artifactId>h2</artifactId>
-        <scope>test</scope>
-    </dependency>
+    padding: 30px;
     margin-bottom: 20px;
 }
 
@@ -275,7 +270,7 @@ body {
 
 .progress-bar-large {
     height: 20px;
-    background-color: #e9ecef;
+    background-color: var(--light);
     border-radius: 10px;
     overflow: hidden;
     margin-bottom: 15px;
@@ -283,13 +278,13 @@ body {
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #4361ee, #3a56d4);
+    background: linear-gradient(90deg, #003B46, #07575B);
     border-radius: 10px;
     transition: width 0.5s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: var(--light);
     font-size: 12px;
     font-weight: 600;
 }
@@ -352,12 +347,12 @@ body {
 .lesson-icon {
     width: 60px;
     height: 60px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #003B46 0%, #66A5AD 100%);
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: var(--light);
     font-size: 24px;
 }
 
@@ -389,7 +384,7 @@ body {
 .progress-bar-small {
     flex: 1;
     height: 8px;
-    background-color: #e9ecef;
+    background-color: var(--light);
     border-radius: 4px;
     overflow: hidden;
 }
@@ -408,7 +403,7 @@ body {
     gap: 8px;
     padding: 10px 20px;
     background-color: var(--primary);
-    color: white;
+    color: var(--light);
     text-decoration: none;
     border-radius: 8px;
     font-weight: 500;
@@ -465,9 +460,9 @@ body {
 .footer {
     text-align: center;
     padding: 20px;
-    color: white;
+    color: var(--primary);
     font-size: 14px;
-    background: rgba(0,0,0,0.2);
+    background: var(--secondary);
     margin-top: 40px;
 }
 
@@ -496,7 +491,7 @@ body {
 .lesson-badge {
     display: inline-block;
     background: var(--primary);
-    color: white;
+    color: var(--light);
     padding: 8px 16px;
     border-radius: 20px;
     font-weight: 600;
@@ -552,7 +547,7 @@ body {
 }
 
 .exercise-item:hover {
-    background-color: #f8f9fa;
+    background-color: var(--light);
 }
 
 .exercise-item:last-child {
@@ -562,12 +557,12 @@ body {
 .exercise-icon {
     width: 50px;
     height: 50px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #003B46 0%, #66A5AD 100%);
     border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: var(--light);
     font-size: 20px;
 }
 
@@ -602,18 +597,18 @@ body {
 }
 
 .badge-easy {
-    background-color: #e8f5e9;
-    color: #2e7d32;
+    background-color: #e6f7f5;
+    color: #07575B;
 }
 
 .badge-medium {
-    background-color: #fff3e0;
-    color: #ef6c00;
+    background-color: #f3f9fa;
+    color: #003B46;
 }
 
 .badge-hard {
-    background-color: #ffebee;
-    color: #c62828;
+    background-color: #fbeeee;
+    color: #003B46;
 }
 
 .points {
@@ -652,7 +647,7 @@ body {
 
 .btn-start {
     background-color: var(--primary);
-    color: white;
+    color: var(--light);
 }
 
 .btn-start:hover {
@@ -661,11 +656,11 @@ body {
 
 .btn-completed {
     background-color: var(--success);
-    color: white;
+    color: var(--light);
 }
 
 .btn-completed:hover {
-    background-color: #45a049;
+    background-color: #4fa7b3;
 }
 
 .lesson-navigation {
@@ -678,8 +673,8 @@ body {
     align-items: center;
     gap: 8px;
     padding: 12px 24px;
-    background-color: #6c757d;
-    color: white;
+    background-color: var(--gray);
+    color: var(--light);
     text-decoration: none;
     border-radius: 8px;
     font-weight: 500;
@@ -687,7 +682,7 @@ body {
 }
 
 .btn-secondary:hover {
-    background-color: #5a6268;
+    background-color: var(--primary-dark);
 }
 
 /* Exercise Page Styles */
@@ -712,13 +707,13 @@ body {
 }
 
 .badge-lesson {
-    background-color: #e3f2fd;
-    color: #1976d2;
+    background-color: #e6f7f5;
+    color: #003B46;
 }
 
 .badge-points {
-    background-color: #fff3e0;
-    color: #f57c00;
+    background-color: #f3f9fa;
+    color: #07575B;
 }
 
 .exercise-header h1 {
@@ -759,7 +754,7 @@ body {
 }
 
 .code-header, .solution-header {
-    background-color: #f8f9fa;
+    background-color: var(--light);
     padding: 15px 25px;
     display: flex;
     justify-content: space-between;
@@ -786,14 +781,14 @@ body {
 }
 
 .btn-copy:hover, .btn-toggle:hover {
-    background-color: #f8f9fa;
+    background-color: var(--light);
 }
 
 pre {
     margin: 0;
     padding: 25px;
     overflow-x: auto;
-    background-color: #f8f9fa;
+    background-color: var(--light);
 }
 
 code {
@@ -828,7 +823,7 @@ code {
     gap: 10px;
     padding: 15px 30px;
     background-color: var(--success);
-    color: white;
+    color: var(--light);
     border: none;
     border-radius: 10px;
     font-size: 16px;
@@ -840,16 +835,16 @@ code {
 }
 
 .btn-complete:hover {
-    background-color: #45a049;
+    background-color: #4fa7b3;
     transform: translateY(-2px);
 }
 
 .completed-info {
     text-align: center;
     padding: 20px;
-    background-color: #e8f5e9;
+    background-color: #e6f7f5;
     border-radius: 10px;
-    color: #2e7d32;
+    color: #07575B;
 }
 
 .nav-buttons {
@@ -864,7 +859,7 @@ code {
     gap: 8px;
     padding: 12px 24px;
     background-color: var(--primary);
-    color: white;
+    color: var(--light);
     text-decoration: none;
     border-radius: 8px;
     font-weight: 500;
@@ -919,7 +914,7 @@ code {
     }
     .exercise-icon {
         font-size: 2rem;
-        color: #fbc02d;
+        color: var(--secondary);
         min-width: 40px;
         text-align: center;
     }
@@ -938,7 +933,7 @@ code {
         margin-top: 8px;
     }
     .completed-label {
-        color: #4CAF50;
+        color: var(--success);
         font-weight: bold;
         display: flex;
         align-items: center;

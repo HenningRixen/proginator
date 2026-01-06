@@ -65,8 +65,10 @@ public class LearnController {
 
     @GetMapping("/lesson/{id}")
     public String lesson(@PathVariable Long id, Model model, Principal principal) {
-        User user = userRepository.findByUsername(principal.getName()).orElseThrow();
-        Lesson lesson = lessonRepository.findById(id).orElseThrow();
+        User user = userRepository.findByUsername(principal.getName()).orElse(null);
+        if (user == null) return "error/404";
+        Lesson lesson = lessonRepository.findById(id).orElse(null);
+        if (lesson == null) return "error/404";
         List<Exercise> exercises = exerciseRepository.findByLessonId(id);
 
         Set<Long> completedIds = new HashSet<>(user.getCompletedExercises());
@@ -80,8 +82,10 @@ public class LearnController {
 
     @GetMapping("/exercise/{id}")
     public String exercise(@PathVariable Long id, Model model, Principal principal) {
-        User user = userRepository.findByUsername(principal.getName()).orElseThrow();
-        Exercise exercise = exerciseRepository.findById(id).orElseThrow();
+        User user = userRepository.findByUsername(principal.getName()).orElse(null);
+        if (user == null) return "error/404";
+        Exercise exercise = exerciseRepository.findById(id).orElse(null);
+        if (exercise == null) return "error/404";
 
         boolean isCompleted = user.getCompletedExercises().contains(id);
 
