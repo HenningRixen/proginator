@@ -49,7 +49,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
-
 // Add CSS for ripple effect
 const style = document.createElement('style');
 style.textContent = `

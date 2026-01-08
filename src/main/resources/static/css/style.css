@@ -623,10 +623,6 @@ h1, h2, h3, h4, h5, h6 {
         margin-top: 8px;
     }
 }
-/* ===================================================== */
-/* === FIX: Lesson-Content nicht abdunkeln ============= */
-/* ===================================================== */
-
 .lesson-container {
     position: relative;
     z-index: 1;
@@ -637,31 +633,76 @@ h1, h2, h3, h4, h5, h6 {
 .lesson-container::after {
     display: none;
 }
-/* ===================================================== */
-/* === Lesson-Seite: Texte außerhalb der Cards ========= */
-/* ===================================================== */
 
 /* Haupttitel */
 .lesson-container .lesson-header h1 {
-    color: #ffffff;
-    text-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+    color: #fff;
+    text-shadow: none;
 }
+
 /* Kurzbeschreibung */
 .lesson-container .lesson-desc {
-    color: var(--light);
+    color: #222;
 }
 
 /* Lesson-Content (HTML aus DB) */
 .lesson-container .lesson-content {
-    color: var(--light);
+    color: #222;
+    background: #fff;
 }
 
 .lesson-container .lesson-content p,
 .lesson-container .lesson-content li,
 .lesson-container .lesson-content span {
-    color: var(--light);
+    color: #222;
     line-height: 1.7;
 }
+
+.lesson-content {
+    background: #fff;
+    border-radius: 12px;
+    padding: 32px 28px;
+    margin-bottom: 32px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    font-size: 1.08rem;
+    line-height: 1.7;
+    color: #222;
+}
+
+.lesson-content h3 {
+    color: #003B46;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    font-size: 1.3em;
+    font-weight: 700;
+}
+
+.lesson-content ul,
+.lesson-content ol {
+    margin-left: 1.5em;
+    margin-bottom: 1em;
+}
+
+.lesson-content li {
+    margin-bottom: 0.4em;
+}
+
+.lesson-content a {
+    color: #07575B;
+    text-decoration: underline;
+    transition: color 0.2s;
+}
+.lesson-content a:hover {
+    color: #66A5AD;
+}
+.lesson-content h3 {
+    color: #003B46 !important;   /* dunkles Türkis */
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    font-size: 1.3em;
+    font-weight: 700;
+}
+
 
 /* Aufgaben-Überschrift */
 .lesson-container .exercises-section > h2 {

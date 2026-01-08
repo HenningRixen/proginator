@@ -12,7 +12,7 @@ public class Lesson {
     private String title;
     private String shortDescription;
 
-    @Column(length = 2000)
+    @Lob
     private String content;
 
     @OneToMany(mappedBy = "lesson", cascade = CascadeType.ALL)
