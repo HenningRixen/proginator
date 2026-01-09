@@ -48,6 +48,25 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => ripple.remove(), 600);
         });
     });
+
+    // Aufgabe als erledigt markieren per AJAX (ohne Notification)
+    document.querySelectorAll('form[action*="/complete"]').forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            fetch(form.action, { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        form.style.display = 'none';
+                        // Optional: Label "Erledigt" anzeigen
+                        const erledigt = document.createElement('span');
+                        erledigt.className = 'completed-label';
+                        erledigt.innerHTML = '<i class="fas fa-check-circle"></i> Erledigt';
+                        form.parentNode.appendChild(erledigt);
+                    }
+                });
+        });
+    });
 });
 // Add CSS for ripple effect
 const style = document.createElement('style');
@@ -58,12 +77,12 @@ style.textContent = `
             opacity: 0;
         }
     }
-    
+
     .btn {
         position: relative;
         overflow: hidden;
     }
-    
+
     /* Smooth scroll for anchor links */
     html {
         scroll-behavior: smooth;
@@ -102,15 +121,15 @@ function showNotification(message, type = 'success') {
                 animation-fill-mode: forwards;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.15);
             }
-            
+
             .notification-success {
                 background-color: #4CAF50;
             }
-            
+
             .notification-error {
                 background-color: #f44336;
             }
-            
+
             @keyframes slideIn {
                 from {
                     transform: translateX(100%);
@@ -121,7 +140,7 @@ function showNotification(message, type = 'success') {
                     opacity: 1;
                 }
             }
-            
+
             @keyframes fadeOut {
                 from {
                     opacity: 1;

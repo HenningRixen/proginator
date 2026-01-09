@@ -108,7 +108,6 @@ public class DataInitializer implements CommandLineRunner {
         if (!lessonRepository.existsById(2L)) {
             lessonRepository.save(lesson2);
         }
-
         // Lektion 6
         Lesson lesson6 = new Lesson(6L,
                 "Methoden verstehen: Parameter, Rückgabewerte & Rekursion",
