@@ -6,6 +6,7 @@ import com.example.prog1learnapp.model.User;
 import com.example.prog1learnapp.repository.LessonRepository;
 import com.example.prog1learnapp.repository.ExerciseRepository;
 import com.example.prog1learnapp.repository.UserRepository;
+import jakarta.transaction.Transactional;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -197,6 +198,7 @@ public class DataInitializer implements CommandLineRunner {
         System.out.println("Demo data initialized!");
     }
 
+    @Transactional
     private void saveExerciseIfNotExists(Exercise exercise) {
         boolean exists = exerciseRepository.findByLessonId(exercise.getLesson().getId())
                 .stream()

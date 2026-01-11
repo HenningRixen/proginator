@@ -1,0 +1,17 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/lernapp
+    driver-class-name: org.postgresql.Driver
+    username: lernapp
+    password: secret
+    hikari:
+      auto-commit: false
+
+  jpa:
+    hibernate:
+      ddl-auto: validate  # validiert das Schema, ändert aber nichts
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
