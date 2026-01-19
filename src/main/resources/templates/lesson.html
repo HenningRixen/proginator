@@ -18,10 +18,10 @@
         <a th:href="@{/dashboard}" class="nav-back">
             <i class="fas fa-arrow-left"></i> Zurück zum Dashboard
         </a>
-        <div class="nav-brand">
+        <a th:href="@{/dashboard}" class="nav-brand">
             <i class="fas fa-code"></i>
             <span>Proginator</span>
-        </div>
+        </a>
     </div>
 </nav>
 
@@ -31,11 +31,8 @@
     <div class="lesson-header">
         <div class="lesson-badges">
             <span class="badge badge-lesson">
+                <i class="fas fa-calendar-week"></i>
                 Woche <span th:text="${lesson.id}"></span>
-            </span>
-            <span class="badge badge-title">
-                <i class="fas fa-book"></i>
-                <span th:text="${lesson.title}"></span>
             </span>
         </div>
         <h1 th:text="${lesson.title}"></h1>
@@ -43,54 +40,72 @@
     </div>
 
     <!-- Lesson Content -->
-    <div class="lesson-content">
-        <div th:utext="${lesson.content}"></div>
+    <div class="lesson-content" th:utext="${lesson.content}">
     </div>
 
     <!-- Exercises List -->
-   <div class="exercises-section">
-       <h2><i class="fas fa-tasks"></i> Aufgaben</h2>
-       <div class="exercises-list">
-           <div th:each="exercise : ${exercises}" class="exercise-card"
-                th:classappend="${completedIds.contains(exercise.id)} ? 'completed'">
-               <div class="exercise-main">
-                   <div class="exercise-icon">
-                       <i class="fas fa-star" th:if="${exercise.difficulty} == 'EASY'"></i>
-                       <i class="fas fa-star-half-alt" th:if="${exercise.difficulty} == 'MEDIUM'"></i>
-                       <i class="fas fa-star" th:if="${exercise.difficulty} == 'HARD'"></i>
-                   </div>
-                   <div class="exercise-details">
-                       <h3 th:text="${exercise.title}"></h3>
-                       <div class="exercise-badges">
-                           <span class="badge badge-easy" th:if="${exercise.difficulty} == 'EASY'">
-                               <span th:text="${exercise.difficulty}"></span>
-                           </span>
-                           <span class="badge badge-medium" th:if="${exercise.difficulty} == 'MEDIUM'">
-                               <span th:text="${exercise.difficulty}"></span>
-                           </span>
-                           <span class="badge badge-hard" th:if="${exercise.difficulty} == 'HARD'">
-                               <span th:text="${exercise.difficulty}"></span>
-                           </span>
-                       </div>
-                   </div>
-               </div>
-               <div class="exercise-actions">
-                   <a th:href="@{/exercise/{id}(id=${exercise.id})}" class="btn btn-primary">
-                       <i class="fas fa-arrow-right"></i> Zur Aufgabe
-                   </a>
-                   <span th:if="${completedIds.contains(exercise.id)}" class="completed-label">
-                       <i class="fas fa-check-circle"></i> Erledigt
-                   </span>
-               </div>
-           </div>
-       </div>
-   </div>
+    <div class="exercises-section" th:if="${!exercises.isEmpty()}">
+        <h2><i class="fas fa-tasks"></i> Aufgaben dieser Woche</h2>
+        <p class="section-desc">Bearbeite die folgenden Übungen, um das Gelernte anzuwenden.</p>
+
+        <div class="exercises-list">
+            <div th:each="exercise, iterStat : ${exercises}" class="exercise-card"
+                 th:classappend="${completedIds.contains(exercise.id)} ? 'completed'">
+
+                <!-- Exercise Number Badge -->
+                <div class="exercise-number" th:text="${iterStat.count}"></div>
+
+                <div class="exercise-main">
+                    <div class="exercise-icon"
+                         th:classappend="${exercise.difficulty == 'EASY'} ? 'icon-easy' : (${exercise.difficulty == 'MEDIUM'} ? 'icon-medium' : 'icon-hard')">
+                        <i class="fas fa-seedling" th:if="${exercise.difficulty == 'EASY'}"></i>
+                        <i class="fas fa-fire" th:if="${exercise.difficulty == 'MEDIUM'}"></i>
+                        <i class="fas fa-bolt" th:if="${exercise.difficulty == 'HARD'}"></i>
+                    </div>
+                    <div class="exercise-details">
+                        <h3 th:text="${exercise.title}"></h3>
+                        <p class="exercise-desc" th:if="${exercise.description != null}"
+                           th:text="${#strings.abbreviate(exercise.description, 100)}"></p>
+                        <div class="exercise-badges">
+                            <span class="badge badge-easy" th:if="${exercise.difficulty == 'EASY'}">
+                                <i class="fas fa-seedling"></i> Einfach
+                            </span>
+                            <span class="badge badge-medium" th:if="${exercise.difficulty == 'MEDIUM'}">
+                                <i class="fas fa-fire"></i> Mittel
+                            </span>
+                            <span class="badge badge-hard" th:if="${exercise.difficulty == 'HARD'}">
+                                <i class="fas fa-bolt"></i> Schwer
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="exercise-actions">
+                    <span th:if="${completedIds.contains(exercise.id)}" class="completed-label">
+                        <i class="fas fa-check-circle"></i> Erledigt
+                    </span>
+                    <a th:href="@{/exercise/{id}(id=${exercise.id})}" class="btn btn-primary">
+                        <span th:if="${completedIds.contains(exercise.id)}">Wiederholen</span>
+                        <span th:unless="${completedIds.contains(exercise.id)}">Starten</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Empty State wenn keine Aufgaben -->
+    <div class="empty-state" th:if="${exercises.isEmpty()}">
+        <i class="fas fa-clipboard-list"></i>
+        <h3>Noch keine Aufgaben</h3>
+        <p>Für diese Lektion sind noch keine Übungsaufgaben verfügbar.</p>
+    </div>
 </div>
 
 <footer class="footer">
-    <p>© 2025 Duale Hochschule SH - Programmieren 1 Lernplattform | Version 1.0</p>
+    <p>© 2026 Duale Hochschule SH - Programmieren 1 Lernplattform</p>
 </footer>
 
-<script src="/js/main.js"></script>
+<script th:src="@{/js/main.js}"></script>
 </body>
 </html>

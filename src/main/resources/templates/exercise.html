@@ -33,19 +33,17 @@
     <div class="exercise-header">
         <div class="exercise-badges">
             <span class="badge badge-lesson">
+                <i class="fas fa-calendar-week"></i>
                 Woche <span th:text="${exercise.lesson.id}"></span>
             </span>
-            <span class="badge badge-easy" th:if="${exercise.difficulty} == 'EASY'">
-                <i class="fas fa-star"></i>
-                <span th:text="${exercise.difficulty}"></span>
+            <span class="badge badge-easy" th:if="${exercise.difficulty == 'EASY'}">
+                <i class="fas fa-seedling"></i> Einfach
             </span>
-            <span class="badge badge-medium" th:if="${exercise.difficulty} == 'MEDIUM'">
-                <i class="fas fa-star-half-alt"></i>
-                <span th:text="${exercise.difficulty}"></span>
+            <span class="badge badge-medium" th:if="${exercise.difficulty == 'MEDIUM'}">
+                <i class="fas fa-fire"></i> Mittel
             </span>
-            <span class="badge badge-hard" th:if="${exercise.difficulty} == 'HARD'">
-                <i class="fas fa-star"></i>
-                <span th:text="${exercise.difficulty}"></span>
+            <span class="badge badge-hard" th:if="${exercise.difficulty == 'HARD'}">
+                <i class="fas fa-bolt"></i> Schwer
             </span>
         </div>
 
@@ -54,14 +52,14 @@
         <div class="completion-status" th:if="${completed}">
             <div class="alert alert-success">
                 <i class="fas fa-check-circle"></i>
-                Diese Aufgabe hast du bereits abgeschlossen!
+                Super! Diese Aufgabe hast du bereits erfolgreich abgeschlossen.
             </div>
         </div>
     </div>
 
     <!-- Task Description -->
     <div class="task-section">
-        <h2><i class="fas fa-question-circle"></i> Aufgabenstellung</h2>
+        <h2><i class="fas fa-clipboard-list"></i> Aufgabenstellung</h2>
         <div class="task-card">
             <div th:utext="${exercise.description}"></div>
         </div>
@@ -70,16 +68,26 @@
     <!-- Starter Code -->
     <div class="code-section">
         <h2><i class="fas fa-code"></i> Starter-Code</h2>
+        <div class="code-header">
+            <span class="code-filename">Main.java</span>
+            <button class="btn-copy" onclick="copyCode(this)" data-tooltip="Code kopieren">
+                <i class="fas fa-copy"></i>
+            </button>
+        </div>
         <pre><code class="language-java" th:text="${exercise.starterCode}"></code></pre>
     </div>
 
     <!-- Solution (Collapsible) -->
     <div class="solution-section">
-
-
+        <h2><i class="fas fa-lightbulb"></i> Lösung</h2>
         <details>
-            <summary><i class="fas fa-lightbulb"></i> Lösung anzeigen</summary>
-            <pre><code class="language-java" th:text="${exercise.solution}"></code></pre>
+            <summary>
+                <i class="fas fa-eye"></i> Lösung anzeigen
+                <span class="hint-text">(Erst versuchen, selbst zu lösen!)</span>
+            </summary>
+            <div class="solution-content">
+                <pre><code class="language-java" th:text="${exercise.solution}"></code></pre>
+            </div>
         </details>
     </div>
 
@@ -106,6 +114,23 @@
 
 <script th:src="@{/js/main.js}"></script>
 <script th:inline="javascript">
+    // Copy Code Funktion
+    function copyCode(button) {
+        const codeBlock = button.closest('.code-section').querySelector('code');
+        const text = codeBlock.textContent;
+
+        navigator.clipboard.writeText(text).then(() => {
+            const icon = button.querySelector('i');
+            icon.className = 'fas fa-check';
+            button.classList.add('copied');
+
+            setTimeout(() => {
+                icon.className = 'fas fa-copy';
+                button.classList.remove('copied');
+            }, 2000);
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         hljs.highlightAll();
 
