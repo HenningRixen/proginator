@@ -49,3 +49,14 @@ docker compose -f docker-compose.prod.yml logs -f
 # Stoppen
 docker compose -f docker-compose.prod.yml down
 
+#nginx restarten
+sudo pkill -9 nginx
+sudo systemctl stop nginx
+sudo systemctl disable nginx
+
+#nginx already in use
+sudo lsof -i :80
+
+#jar bauen
+./mvnw clean package
+
