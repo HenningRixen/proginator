@@ -1,14 +1,17 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${exercise.title}"></title>
-    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/base.css}">
+    <link rel="stylesheet" th:href="@{/css/exercise.css}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
-    <script>hljs.highlightAll();</script>
 </head>
 <body>
 <!-- Navigation -->
@@ -82,16 +85,88 @@
 
     <!-- Actions -->
     <div class="actions-section">
-        <form th:action="@{/exercise/{id}/complete(id=${exercise.id})}" method="post" th:if="!${completed}">
-            <button type="submit" class="btn btn-success">
+        <div id="complete-btn-container" th:if="${!completed}">
+            <button type="button" id="complete-btn" class="btn btn-success"
+                    th:data-exercise-id="${exercise.id}">
                 <i class="fas fa-check"></i> Aufgabe als erledigt markieren
             </button>
-        </form>
+        </div>
+        <div id="completed-status" th:if="${completed}" class="completed-label">
+            <i class="fas fa-check-circle"></i> Diese Aufgabe wurde bereits erledigt
+        </div>
         <a th:if="${nextExercise != null}" th:href="@{/exercise/{id}(id=${nextExercise})}" class="btn btn-primary">
             <i class="fas fa-arrow-right"></i> Nächste Aufgabe
         </a>
     </div>
 </div>
-<script src="/js/main.js"></script>
+
+<footer class="footer">
+    <p>© 2026 Duale Hochschule SH - Programmieren 1 Lernplattform | Version 1.0</p>
+</footer>
+
+<script th:src="@{/js/main.js}"></script>
+<script th:inline="javascript">
+    document.addEventListener('DOMContentLoaded', function() {
+        hljs.highlightAll();
+
+        // AJAX für "Aufgabe erledigt" Button
+        const completeBtn = document.getElementById('complete-btn');
+        if (completeBtn) {
+            completeBtn.addEventListener('click', function() {
+                const exerciseId = this.getAttribute('data-exercise-id');
+                const btn = this;
+
+                // Button deaktivieren und Loading-State zeigen
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wird gespeichert...';
+
+                // CSRF-Token aus Meta-Tag oder Cookie holen (falls vorhanden)
+                const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content') || '';
+                const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content') || 'X-CSRF-TOKEN';
+
+                fetch('/exercise/' + exerciseId + '/complete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        [csrfHeader]: csrfToken
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Button durch Erfolgs-Nachricht ersetzen
+                        const container = document.getElementById('complete-btn-container');
+                        container.innerHTML = `
+                            <div class="alert alert-success" style="margin: 0;">
+                                <i class="fas fa-check-circle"></i>
+                                Super! Aufgabe erfolgreich abgeschlossen!
+                            </div>
+                        `;
+
+                        // Optional: Notification anzeigen
+                        if (window.showNotification) {
+                            showNotification('Aufgabe erfolgreich abgeschlossen!', 'success');
+                        }
+                    } else {
+                        // Fehler anzeigen
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-check"></i> Aufgabe als erledigt markieren';
+                        if (window.showNotification) {
+                            showNotification('Fehler: ' + (data.message || 'Unbekannter Fehler'), 'error');
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-check"></i> Aufgabe als erledigt markieren';
+                    if (window.showNotification) {
+                        showNotification('Verbindungsfehler. Bitte erneut versuchen.', 'error');
+                    }
+                });
+            });
+        }
+    });
+</script>
 </body>
 </html>

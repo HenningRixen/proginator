@@ -1,0 +1,246 @@
+/* =====================================================
+   EXERCISE.CSS - Styles für Aufgaben-Seite
+   ===================================================== */
+
+.exercise-container {
+    position: relative;
+    z-index: 1;
+}
+
+/* === Exercise Header === */
+.exercise-header {
+    margin-bottom: var(--space-8);
+}
+
+.exercise-header h1 {
+    color: var(--white);
+    font-size: 2rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    margin-bottom: var(--space-4);
+}
+
+.exercise-badges {
+    display: flex;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+    flex-wrap: wrap;
+}
+
+/* === Completion Status === */
+.completion-status .alert {
+    background: rgba(46, 204, 113, 0.15);
+    border: 1px solid var(--success);
+    color: var(--white);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4) var(--space-5);
+}
+
+/* === Task Section === */
+.task-section,
+.code-section,
+.solution-section {
+    margin-bottom: var(--space-8);
+}
+
+.task-section > h2,
+.code-section > h2,
+.solution-section > h2 {
+    color: var(--white);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+    font-size: 1.375rem;
+}
+
+.task-section > h2 i,
+.code-section > h2 i,
+.solution-section > h2 i {
+    color: var(--secondary-light);
+}
+
+/* === Task Card === */
+.task-card {
+    background: var(--white);
+    border-radius: var(--radius-xl);
+    padding: var(--space-6);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--gray-100);
+    color: var(--gray-700);
+    line-height: 1.75;
+}
+
+.task-card p {
+    margin-bottom: var(--space-4);
+}
+
+.task-card ul,
+.task-card ol {
+    margin-left: var(--space-6);
+    margin-bottom: var(--space-4);
+}
+
+.task-card li {
+    margin-bottom: var(--space-2);
+}
+
+.task-card code {
+    background: var(--gray-100);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 0.9em;
+    color: var(--primary);
+}
+
+/* === Code Blocks === */
+.code-section pre,
+.solution-section pre {
+    background: var(--gray-900);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    overflow-x: auto;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--gray-700);
+    margin: 0;
+}
+
+.code-section code,
+.solution-section code {
+    font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--gray-100);
+    background: none;
+    padding: 0;
+}
+
+/* === Solution Details === */
+details {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+}
+
+details summary {
+    color: var(--white);
+    cursor: pointer;
+    padding: var(--space-4) var(--space-5);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    transition: var(--transition);
+    list-style: none;
+}
+
+details summary::-webkit-details-marker {
+    display: none;
+}
+
+details summary::before {
+    content: '▶';
+    font-size: 0.75rem;
+    transition: var(--transition);
+}
+
+details[open] summary::before {
+    transform: rotate(90deg);
+}
+
+details summary:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+details summary i {
+    color: var(--warning);
+}
+
+details[open] summary {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+details > pre {
+    margin: 0;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    border: none;
+    border-top: none;
+}
+
+/* === Actions Section === */
+.actions-section {
+    display: flex;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    margin-top: var(--space-8);
+    padding-top: var(--space-6);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    align-items: center;
+}
+
+.actions-section .btn {
+    min-width: 200px;
+}
+
+.actions-section .completed-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    color: var(--success);
+    font-weight: 600;
+    font-size: 1rem;
+    background: rgba(46, 204, 113, 0.15);
+    padding: var(--space-4) var(--space-5);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--success);
+}
+
+.actions-section .completed-label i {
+    font-size: 1.25rem;
+}
+
+.actions-section .alert {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#complete-btn-container {
+    display: contents;
+}
+
+/* === Responsive === */
+@media (max-width: 768px) {
+    .exercise-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .task-card {
+        padding: var(--space-5);
+    }
+
+    .code-section pre,
+    .solution-section pre {
+        padding: var(--space-4);
+        font-size: 0.875rem;
+    }
+
+    .actions-section {
+        flex-direction: column;
+    }
+
+    .actions-section .btn {
+        width: 100%;
+    }
+}

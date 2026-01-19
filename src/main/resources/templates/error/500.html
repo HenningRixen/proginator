@@ -1,0 +1,99 @@
+drücke öffnet sich eine<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Serverfehler - Proginator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/base.css}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .error-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 80vh;
+            text-align: center;
+            padding: var(--space-8);
+        }
+
+        .error-code {
+            font-size: 8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--danger) 0%, var(--warning) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1;
+            margin-bottom: var(--space-4);
+        }
+
+        .error-title {
+            font-size: 2rem;
+            color: var(--white);
+            margin-bottom: var(--space-4);
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .error-message {
+            font-size: 1.125rem;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: var(--space-8);
+            max-width: 500px;
+        }
+
+        .error-actions {
+            display: flex;
+            gap: var(--space-4);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--white);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: var(--white);
+        }
+    </style>
+</head>
+<body>
+<!-- Navigation -->
+<nav class="navbar">
+    <div class="nav-container">
+        <a th:href="@{/dashboard}" class="nav-brand">
+            <i class="fas fa-code"></i>
+            <span>Proginator</span>
+        </a>
+    </div>
+</nav>
+
+<div class="error-container">
+    <div class="error-code">500</div>
+    <h1 class="error-title">Serverfehler</h1>
+    <p class="error-message">
+        Es ist ein interner Fehler aufgetreten. Unser Team wurde benachrichtigt.
+        Bitte versuche es später erneut.
+    </p>
+    <div class="error-actions">
+        <a th:href="@{/dashboard}" class="btn btn-primary">
+            <i class="fas fa-home"></i> Zum Dashboard
+        </a>
+        <a href="javascript:location.reload()" class="btn btn-secondary">
+            <i class="fas fa-redo"></i> Erneut versuchen
+        </a>
+    </div>
+</div>
+
+<footer class="footer">
+    <p>© 2026 Duale Hochschule SH - Programmieren 1 Lernplattform</p>
+</footer>
+</body>
+</html>

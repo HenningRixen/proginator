@@ -2,35 +2,29 @@ package com.example.prog1learnapp.config;
 
 import com.example.prog1learnapp.model.Lesson;
 import com.example.prog1learnapp.model.Exercise;
-import com.example.prog1learnapp.model.User;
 import com.example.prog1learnapp.repository.LessonRepository;
 import com.example.prog1learnapp.repository.ExerciseRepository;
-import com.example.prog1learnapp.repository.UserRepository;
-import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
 
+    private static final Logger log = LoggerFactory.getLogger(DataInitializer.class);
+
     private final LessonRepository lessonRepository;
     private final ExerciseRepository exerciseRepository;
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
 
     public DataInitializer(LessonRepository lessonRepository,
-                           ExerciseRepository exerciseRepository,
-                           UserRepository userRepository,
-                           PasswordEncoder passwordEncoder) {
+                           ExerciseRepository exerciseRepository) {
         this.lessonRepository = lessonRepository;
         this.exerciseRepository = exerciseRepository;
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
-    public void run(String... args) throws Exception {
+    public void run(String... args) {
         Lesson lesson1 = new Lesson(1L,
                 "Einstieg & Werkzeuge",
                 "IDE, JDK, Projektaufbau, Kompilieren / Ausführen",
@@ -195,16 +189,20 @@ public class DataInitializer implements CommandLineRunner {
         ex6.setLesson(lesson6);
         saveExerciseIfNotExists(ex6);
 
-        System.out.println("Demo data initialized!");
+        log.info("Demo data initialized successfully!");
     }
 
-    @Transactional
-    private void saveExerciseIfNotExists(Exercise exercise) {
+    /**
+     * Speichert eine Übung nur, wenn sie noch nicht existiert.
+     * Hinweis: @Transactional muss auf public/protected Methode, damit Spring AOP funktioniert.
+     */
+    protected void saveExerciseIfNotExists(Exercise exercise) {
         boolean exists = exerciseRepository.findByLessonId(exercise.getLesson().getId())
                 .stream()
                 .anyMatch(e -> e.getTitle().equals(exercise.getTitle()));
         if (!exists) {
             exerciseRepository.save(exercise);
+            log.debug("Exercise '{}' saved for lesson {}", exercise.getTitle(), exercise.getLesson().getId());
         }
     }
 }
