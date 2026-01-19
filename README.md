@@ -35,3 +35,17 @@ docker rm -f lernapp-postgres
 psql -h localhost -U lernapp -d lernapp
 
 und dann über SELECT * FROM public.users; einmal die user tabelle ausgeben lassen
+
+
+
+
+#docker auf server laufen lassen:
+# Starten (im Hintergrund)
+docker compose -f docker-compose.prod.yml up -d
+
+# Logs ansehen
+docker compose -f docker-compose.prod.yml logs -f
+
+# Stoppen
+docker compose -f docker-compose.prod.yml down
+
