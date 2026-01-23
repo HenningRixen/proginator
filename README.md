@@ -60,3 +60,15 @@ sudo lsof -i :80
 #jar bauen
 ./mvnw clean package
 
+#docker healthcheck
+docker ps
+
+#backup files
+ls -lh /opt/db_backups
+
+#manual backup
+docker exec postgres pg_dump \
+  -U proguser \
+  -d progdb \
+  | gzip > /opt/db_backups/manual_$(date +%F_%H-%M-%S).sql.gz
+
