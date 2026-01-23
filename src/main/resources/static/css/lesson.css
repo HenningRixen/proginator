@@ -1,0 +1,397 @@
+/* =====================================================
+   LESSON.CSS - Styles für Lektions-Seite
+   ===================================================== */
+
+.lesson-container {
+    position: relative;
+    z-index: 1;
+}
+
+/* === Lesson Header === */
+.lesson-header {
+    margin-bottom: var(--space-8);
+}
+
+.lesson-header h1 {
+    color: var(--white);
+    font-size: 2.25rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    margin-bottom: var(--space-3);
+}
+
+.lesson-badges {
+    display: flex;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+    flex-wrap: wrap;
+}
+
+.lesson-container .lesson-desc {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1.125rem;
+    line-height: 1.6;
+}
+
+/* === Lesson Content === */
+.lesson-content {
+    background: var(--white);
+    border-radius: var(--radius-xl);
+    padding: var(--space-10);
+    margin-bottom: var(--space-8);
+    box-shadow: var(--shadow-lg);
+    font-size: 1.0625rem;
+    line-height: 1.8;
+    color: var(--gray-700);
+    border: 1px solid var(--gray-100);
+}
+
+.lesson-content > h2:first-child,
+.lesson-content > h3:first-child {
+    margin-top: 0;
+}
+
+.lesson-content h2,
+.lesson-content h3 {
+    color: var(--primary);
+    margin-top: var(--space-10);
+    margin-bottom: var(--space-4);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.lesson-content h2::before {
+    content: '';
+    width: 4px;
+    height: 1.2em;
+    background: linear-gradient(180deg, var(--primary) 0%, var(--secondary) 100%);
+    border-radius: var(--radius-full);
+}
+
+.lesson-content h2 { font-size: 1.5rem; }
+.lesson-content h3 { font-size: 1.25rem; }
+
+.lesson-content p {
+    margin-bottom: var(--space-4);
+    color: var(--gray-700);
+}
+
+.lesson-content ul,
+.lesson-content ol {
+    margin-left: var(--space-6);
+    margin-bottom: var(--space-5);
+    padding-left: var(--space-2);
+}
+
+.lesson-content li {
+    margin-bottom: var(--space-3);
+    color: var(--gray-700);
+    padding-left: var(--space-2);
+}
+
+.lesson-content li::marker {
+    color: var(--secondary);
+}
+
+.lesson-content a {
+    color: var(--secondary);
+    text-decoration: none;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    transition: var(--transition);
+}
+
+.lesson-content a:hover {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.lesson-content code {
+    background: linear-gradient(135deg, var(--gray-100) 0%, var(--gray-50) 100%);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 0.9em;
+    color: var(--primary);
+    border: 1px solid var(--gray-200);
+}
+
+.lesson-content pre {
+    background: var(--gray-900);
+    padding: var(--space-6);
+    border-radius: var(--radius-lg);
+    overflow-x: auto;
+    margin: var(--space-6) 0;
+    border: 1px solid var(--gray-700);
+}
+
+.lesson-content pre code {
+    background: none;
+    padding: 0;
+    color: var(--gray-100);
+    border: none;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+}
+
+/* === Exercises Section === */
+.exercises-section {
+    margin-top: var(--space-12);
+}
+
+.exercises-section > h2 {
+    color: var(--white);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+    font-size: 1.75rem;
+}
+
+.exercises-section > h2 i {
+    color: var(--secondary-light);
+}
+
+.section-desc {
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: var(--space-8);
+    font-size: 1.0625rem;
+}
+
+/* === Exercises List === */
+.exercises-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: var(--space-6);
+    padding: 0;
+    list-style: none;
+}
+
+/* === Exercise Card === */
+.exercise-card {
+    background: var(--white);
+    border: 2px solid var(--gray-100);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+    padding: var(--space-6);
+    padding-top: var(--space-8);
+    display: flex;
+    flex-direction: column;
+    transition: var(--transition);
+    position: relative;
+    min-height: 200px;
+}
+
+.exercise-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    opacity: 0;
+    transition: var(--transition);
+}
+
+.exercise-card:hover {
+    box-shadow: var(--shadow-xl);
+    border-color: var(--secondary);
+    transform: translateY(-6px);
+}
+
+.exercise-card:hover::before {
+    opacity: 1;
+}
+
+/* Completed State */
+.exercise-card.completed {
+    border-color: var(--success);
+    background: linear-gradient(135deg, var(--success-light) 0%, var(--white) 100%);
+}
+
+.exercise-card.completed::before {
+    background: var(--success);
+    opacity: 1;
+}
+
+/* Exercise Number */
+.exercise-number {
+    position: absolute;
+    top: -12px;
+    left: var(--space-5);
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+    color: var(--white);
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.875rem;
+    box-shadow: var(--shadow-md);
+}
+
+.exercise-card.completed .exercise-number {
+    background: var(--success);
+}
+
+/* === Exercise Main === */
+.exercise-main {
+    display: flex;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+    flex: 1;
+}
+
+.exercise-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 1.25rem;
+}
+
+.exercise-icon.icon-easy {
+    background: linear-gradient(135deg, var(--success-light) 0%, #A8E6CF 100%);
+    color: #1E7E4E;
+}
+
+.exercise-icon.icon-medium {
+    background: linear-gradient(135deg, var(--warning-light) 0%, #FFE0B2 100%);
+    color: #B7791F;
+}
+
+.exercise-icon.icon-hard {
+    background: linear-gradient(135deg, var(--danger-light) 0%, #FFCDD2 100%);
+    color: var(--danger);
+}
+
+.exercise-details {
+    flex: 1;
+}
+
+.exercise-details h3 {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: var(--gray-800);
+    margin-bottom: var(--space-2);
+    line-height: 1.4;
+}
+
+.exercise-desc {
+    font-size: 0.875rem;
+    color: var(--gray-500);
+    line-height: 1.5;
+    margin-bottom: var(--space-3);
+}
+
+.exercise-badges {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+/* === Exercise Actions === */
+.exercise-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-4);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--gray-100);
+    margin-top: auto;
+}
+
+.exercise-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.completed-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--success);
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.completed-label i {
+    font-size: 1.125rem;
+}
+
+/* === Empty State === */
+.empty-state {
+    text-align: center;
+    padding: var(--space-16) var(--space-8);
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-xl);
+    border: 2px dashed rgba(255, 255, 255, 0.3);
+}
+
+.empty-state i {
+    font-size: 4rem;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: var(--space-6);
+}
+
+.empty-state h3 {
+    color: var(--white);
+    margin-bottom: var(--space-3);
+}
+
+.empty-state p {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* === Responsive === */
+@media (max-width: 768px) {
+    .lesson-header h1 {
+        font-size: 1.75rem;
+    }
+
+    .lesson-content {
+        padding: var(--space-6);
+    }
+
+    .exercises-list {
+        grid-template-columns: 1fr;
+        gap: var(--space-5);
+    }
+
+    .exercise-card {
+        padding: var(--space-5);
+        padding-top: var(--space-8);
+        min-height: unset;
+    }
+
+    .exercise-main {
+        flex-direction: column;
+        gap: var(--space-3);
+    }
+
+    .exercise-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+
+    .exercise-actions {
+        flex-direction: column;
+        gap: var(--space-3);
+    }
+
+    .exercise-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}

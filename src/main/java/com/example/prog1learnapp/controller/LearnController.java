@@ -6,6 +6,9 @@ import com.example.prog1learnapp.model.Exercise;
 import com.example.prog1learnapp.repository.UserRepository;
 import com.example.prog1learnapp.repository.LessonRepository;
 import com.example.prog1learnapp.repository.ExerciseRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +18,8 @@ import java.util.*;
 
 @Controller
 public class LearnController {
+
+    private static final Logger log = LoggerFactory.getLogger(LearnController.class);
 
     private final UserRepository userRepository;
     private final LessonRepository lessonRepository;
@@ -30,7 +35,12 @@ public class LearnController {
 
     @GetMapping("/dashboard")
     public String dashboard(Model model, Principal principal) {
-        User user = userRepository.findByUsername(principal.getName()).orElseThrow();
+        User user = findUserByPrincipal(principal);
+        if (user == null) {
+            log.warn("User not found for principal: {}", principal.getName());
+            return "redirect:/login";
+        }
+
         List<Lesson> lessons = lessonRepository.findAll();
         List<Exercise> allExercises = exerciseRepository.findAll();
 
@@ -60,33 +70,49 @@ public class LearnController {
         model.addAttribute("completedCount", completedExercises);
         model.addAttribute("totalCount", totalExercises);
 
+        log.debug("Dashboard loaded for user '{}' with {}% progress", user.getUsername(), overallProgress);
         return "dashboard";
     }
 
     @GetMapping("/lesson/{id}")
     public String lesson(@PathVariable Long id, Model model, Principal principal) {
-        User user = userRepository.findByUsername(principal.getName()).orElse(null);
-        if (user == null) return "error/404";
-        Lesson lesson = lessonRepository.findById(id).orElse(null);
-        if (lesson == null) return "error/404";
-        List<Exercise> exercises = exerciseRepository.findByLessonId(id);
+        User user = findUserByPrincipal(principal);
+        if (user == null) {
+            return "redirect:/login";
+        }
 
+        Optional<Lesson> lessonOpt = lessonRepository.findById(id);
+        if (lessonOpt.isEmpty()) {
+            log.warn("Lesson with id {} not found", id);
+            return "error/404";
+        }
+
+        Lesson lesson = lessonOpt.get();
+        List<Exercise> exercises = exerciseRepository.findByLessonId(id);
         Set<Long> completedIds = new HashSet<>(user.getCompletedExercises());
 
         model.addAttribute("lesson", lesson);
         model.addAttribute("exercises", exercises);
         model.addAttribute("completedIds", completedIds);
 
+        log.debug("Lesson {} loaded with {} exercises", id, exercises.size());
         return "lesson";
     }
 
     @GetMapping("/exercise/{id}")
     public String exercise(@PathVariable Long id, Model model, Principal principal) {
-        User user = userRepository.findByUsername(principal.getName()).orElse(null);
-        if (user == null) return "error/404";
-        Exercise exercise = exerciseRepository.findById(id).orElse(null);
-        if (exercise == null) return "error/404";
+        User user = findUserByPrincipal(principal);
+        if (user == null) {
+            return "redirect:/login";
+        }
 
+        Optional<Exercise> exerciseOpt = exerciseRepository.findById(id);
+        if (exerciseOpt.isEmpty()) {
+            log.warn("Exercise with id {} not found", id);
+            return "error/404";
+        }
+
+        Exercise exercise = exerciseOpt.get();
         boolean isCompleted = user.getCompletedExercises().contains(id);
 
         model.addAttribute("exercise", exercise);
@@ -98,15 +124,41 @@ public class LearnController {
 
     @PostMapping("/exercise/{id}/complete")
     @ResponseBody
-    public String completeExercise(@PathVariable Long id, Principal principal) {
-        User user = userRepository.findByUsername(principal.getName()).orElseThrow();
+    public ResponseEntity<Map<String, String>> completeExercise(@PathVariable Long id, Principal principal) {
+        User user = findUserByPrincipal(principal);
+        if (user == null) {
+            log.warn("Unauthorized attempt to complete exercise {}", id);
+            return ResponseEntity.status(401).body(Map.of("status", "error", "message", "Nicht autorisiert"));
+        }
+
+        Optional<Exercise> exerciseOpt = exerciseRepository.findById(id);
+        if (exerciseOpt.isEmpty()) {
+            log.warn("Exercise {} not found for completion", id);
+            return ResponseEntity.status(404).body(Map.of("status", "error", "message", "Aufgabe nicht gefunden"));
+        }
+
         if (!user.getCompletedExercises().contains(id)) {
             user.getCompletedExercises().add(id);
             userRepository.save(user);
+            log.info("User '{}' completed exercise {}", user.getUsername(), id);
         }
-        return "{\"status\":\"success\"}";
+
+        return ResponseEntity.ok(Map.of("status", "success"));
     }
 
+    /**
+     * Findet einen Benutzer anhand des Principal-Objekts.
+     */
+    private User findUserByPrincipal(Principal principal) {
+        if (principal == null) {
+            return null;
+        }
+        return userRepository.findByUsername(principal.getName()).orElse(null);
+    }
+
+    /**
+     * Ermittelt die ID der nächsten Übung in derselben Lektion.
+     */
     private Long getNextExerciseId(Exercise current) {
         List<Exercise> exercises = exerciseRepository.findByLessonId(current.getLesson().getId());
         for (int i = 0; i < exercises.size(); i++) {

@@ -1,9 +1,14 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Proginator</title>
-    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/base.css}">
+    <link rel="stylesheet" th:href="@{/css/login.css}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="auth-body">
@@ -29,21 +34,21 @@
             Registrierung erfolgreich! Bitte einloggen.
         </div>
 
-        <form th:action="@{/login}" method="post" class="auth-form">
+        <form th:action="@{/login}" method="post" class="auth-form" aria-label="Login-Formular">
             <div class="form-group">
                 <label for="username">
-                    <i class="fas fa-user"></i> Benutzername
+                    <i class="fas fa-user" aria-hidden="true"></i> Benutzername
                 </label>
                 <input type="text" id="username" name="username"
-                       placeholder="Dein Uni-Login" required>
+                       placeholder="Dein Uni-Login" required autocomplete="username">
             </div>
 
             <div class="form-group">
                 <label for="password">
-                    <i class="fas fa-lock"></i> Passwort
+                    <i class="fas fa-lock" aria-hidden="true"></i> Passwort
                 </label>
                 <input type="password" id="password" name="password"
-                       placeholder="Dein Passwort" required>
+                       placeholder="Dein Passwort" required autocomplete="current-password">
             </div>
 
             <button type="submit" class="btn btn-primary btn-block">
@@ -58,7 +63,7 @@
         </form>
 
         <div class="auth-footer">
-            <p>© 2025 Duale Hochschule SH - Programmieren 1 Kurs</p>
+            <p>© 2026 Duale Hochschule SH - Programmieren 1 Kurs</p>
         </div>
     </div>
 </div>
