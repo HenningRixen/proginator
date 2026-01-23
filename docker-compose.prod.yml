@@ -35,7 +35,7 @@ services:
     volumes:
       - /opt/db_backups:/backups
     networks:
-      -prognet
+      - prognet
     depends_on:
       - postgres 
 
