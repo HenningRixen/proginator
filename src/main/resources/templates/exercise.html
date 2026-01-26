@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
     <title th:text="${exercise.title}"></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,6 +14,60 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://unpkg.com/monaco-editor@0.44.0/min/vs/loader.js"></script>
+    <style>
+        .hidden { display: none !important; }
+        .success { color: #28a745; border-left: 4px solid #28a745; padding-left: 8px; }
+        .error { color: #dc3545; border-left: 4px solid #dc3545; padding-left: 8px; }
+        #output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Fira Code', monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 12px;
+        }
+        .editor-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin: 16px 0;
+        }
+        .spinner {
+            color: #6c757d;
+        }
+        .alert-success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 12px 0;
+        }
+        .alert-error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 12px 0;
+        }
+        #editor {
+            width: 100% !important;
+            height: 400px !important;
+            position: relative !important;
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        .monaco-editor {
+            width: 100% !important;
+            height: 100% !important;
+        }
+    </style>
 </head>
 <body>
 <!-- Navigation -->
@@ -77,6 +133,34 @@
         <pre><code class="language-java" th:text="${exercise.starterCode}"></code></pre>
     </div>
 
+    <!-- Interactive Code Editor (only for interactive exercises) -->
+    <div class="interactive-section" th:if="${exercise.interactive}">
+        <h2><i class="fas fa-play-circle"></i> Code ausführen</h2>
+        <div class="editor-container">
+            <div id="editor" style="width: 100%; height: 400px; border: 1px solid #ccc; border-radius: 8px;"></div>
+        </div>
+        <div class="editor-actions">
+            <button id="run-btn" class="btn btn-primary">
+                <i class="fas fa-play"></i> Code ausführen
+            </button>
+            <button id="reset-btn" class="btn btn-secondary">
+                <i class="fas fa-redo"></i> Zurücksetzen
+            </button>
+            <div class="spinner hidden" id="spinner">
+                <i class="fas fa-spinner fa-spin"></i> Code wird ausgeführt...
+            </div>
+        </div>
+        <div class="output-container">
+            <h3><i class="fas fa-terminal"></i> Ausgabe</h3>
+            <pre id="output">Keine Ausgabe bisher.</pre>
+            <div id="test-results" class="hidden">
+                <h4><i class="fas fa-vial"></i> Test-Ergebnisse</h4>
+                <div id="test-results-content"></div>
+            </div>
+        </div>
+
+    </div>
+
     <!-- Solution (Collapsible) -->
     <div class="solution-section">
         <h2><i class="fas fa-lightbulb"></i> Lösung</h2>
@@ -113,6 +197,207 @@
 </footer>
 
 <script th:src="@{/js/main.js}"></script>
+    <script th:if="${exercise.interactive}" th:inline="javascript">
+    // Monaco Editor Initialization with fallback
+    let editor = null;
+    const starterCode = `/*
+ * Geben Sie hier Ihren Code ein.
+ * Verwenden Sie die bereitgestellten Starter-Code als Vorlage.
+ */\n` + /*[[${exercise.starterCode}]]*/ '';
+    
+    function initMonacoEditor() {
+        const editorElement = document.getElementById('editor');
+        if (!editorElement) {
+            console.error('Editor container not found');
+            return;
+        }
+        
+        // Show loading indicator
+        editorElement.innerHTML = `
+            <div style="display:flex; align-items:center; justify-content:center; height:400px; background:#1e1e1e; border-radius:8px; color:#ccc; font-family:'Fira Code', monospace;">
+                <div style="text-align:center;">
+                    <i class="fas fa-spinner fa-spin" style="font-size:24px; margin-bottom:10px;"></i>
+                    <p>Lade Code-Editor...</p>
+                </div>
+            </div>
+        `;
+        
+        // Function to load Monaco with retry
+        function attemptMonacoLoad(retryCount = 0) {
+            const maxRetries = 3;
+            
+            // Check if require is available
+            if (typeof require === 'undefined') {
+                if (retryCount < maxRetries) {
+                    setTimeout(() => attemptMonacoLoad(retryCount + 1), 1000);
+                } else {
+                    showFallbackEditor(editorElement);
+                }
+                return;
+            }
+            
+            // Configure require paths
+            try {
+                require.config({ paths: { vs: 'https://unpkg.com/monaco-editor@0.44.0/min/vs' } });
+            } catch (configError) {
+                showFallbackEditor(editorElement);
+                return;
+            }
+            
+            // Load Monaco editor
+            require(['vs/editor/editor.main'], function() {
+                try {
+                    // Clear any existing content in the container
+                    editorElement.innerHTML = '';
+                    
+                    editor = monaco.editor.create(editorElement, {
+                        value: starterCode,
+                        language: 'java',
+                        theme: 'vs-dark',
+                        automaticLayout: true,
+                        minimap: { enabled: false },
+                        scrollBeyondLastLine: false,
+                        fontSize: 14,
+                        lineNumbers: 'on',
+                        roundedSelection: false,
+                        scrollbar: {
+                            vertical: 'visible'
+                        }
+                    });
+                    
+                    // Force a layout update
+                    if (editor && editor.layout) {
+                        editor.layout();
+                    }
+                    
+                    // Safety check: if Monaco doesn't render properly after 3 seconds, show fallback
+                    setTimeout(() => {
+                        const canvases = editorElement.getElementsByTagName('canvas');
+                        if (canvases.length === 0 || canvases[0].width === 0 || canvases[0].height === 0) {
+                            showFallbackEditor(editorElement);
+                        }
+                    }, 3000);
+                    
+                } catch (error) {
+                    showFallbackEditor(editorElement);
+                }
+            }, function(error) {
+                if (retryCount < maxRetries) {
+                    setTimeout(() => attemptMonacoLoad(retryCount + 1), 2000);
+                } else {
+                    showFallbackEditor(editorElement);
+                }
+            });
+        }
+        
+        // Start loading attempt
+        attemptMonacoLoad();
+    }
+    
+    function showFallbackEditor(container) {
+        container.innerHTML = `
+            <textarea id="fallback-editor" style="width:100%; height:400px; font-family: monospace; font-size:14px; padding:10px; border-radius:8px; background:#1e1e1e; color:#d4d4d4; border:1px solid #ccc;">
+                ${starterCode}
+            </textarea>
+            <p style="color:#999; font-size:12px; margin-top:5px;">
+                <i class="fas fa-exclamation-triangle"></i> Monaco Editor konnte nicht geladen werden. Verwenden Sie stattdessen dieses Textfeld.
+            </p>
+        `;
+        // Create a mock editor object for compatibility
+        editor = {
+            getValue: function() {
+                return document.getElementById('fallback-editor').value;
+            },
+            setValue: function(value) {
+                document.getElementById('fallback-editor').value = value;
+            }
+        };
+    }
+    
+    // Initialize editor when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        // Use requestAnimationFrame to ensure DOM is ready for painting
+        requestAnimationFrame(() => {
+            initMonacoEditor();
+        });
+        
+        // Run Button Handler
+        const runBtn = document.getElementById('run-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const outputElement = document.getElementById('output');
+        const spinner = document.getElementById('spinner');
+        const testResults = document.getElementById('test-results');
+        const testResultsContent = document.getElementById('test-results-content');
+        
+        if (runBtn) {
+            runBtn.addEventListener('click', async function() {
+                if (!editor) {
+                    outputElement.textContent = 'Fehler: Editor nicht initialisiert.';
+                    outputElement.className = 'error';
+                    return;
+                }
+                
+                const code = editor.getValue();
+                runBtn.disabled = true;
+                spinner.classList.remove('hidden');
+                outputElement.textContent = 'Code wird ausgeführt...';
+                testResults.classList.add('hidden');
+                
+                try {
+                    // CSRF Token
+                    const csrfToken = document.querySelector('meta[name="_csrf"]')?.getAttribute('content') || '';
+                    const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content') || 'X-CSRF-TOKEN';
+                    
+                    const response = await fetch('/api/execution/run', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            [csrfHeader]: csrfToken
+                        },
+                        body: JSON.stringify({
+                            code: code,
+                            language: 'JAVA',
+                            exerciseId: /*[[${exercise.id}]]*/ 0
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    outputElement.textContent = result.output || result.error || 'Keine Ausgabe';
+                    outputElement.className = result.status === 'SUCCESS' ? 'success' : 'error';
+                    
+                    if (result.testPassed !== undefined) {
+                        testResults.classList.remove('hidden');
+                        if (result.testPassed) {
+                            testResultsContent.innerHTML = '<div class="alert alert-success"><i class="fas fa-check-circle"></i> Alle Tests bestanden!</div>';
+                        } else {
+                            testResultsContent.innerHTML = '<div class="alert alert-error"><i class="fas fa-times-circle"></i> Einige Tests sind fehlgeschlagen.</div>';
+                        }
+                    }
+                    
+                } catch (error) {
+                    outputElement.textContent = 'Fehler bei der Ausführung: ' + error.message;
+                    outputElement.className = 'error';
+                } finally {
+                    runBtn.disabled = false;
+                    spinner.classList.add('hidden');
+                }
+            });
+        }
+        
+        if (resetBtn) {
+            resetBtn.addEventListener('click', function() {
+                if (editor) {
+                    editor.setValue(starterCode);
+                }
+                outputElement.textContent = 'Keine Ausgabe bisher.';
+                outputElement.className = '';
+                testResults.classList.add('hidden');
+            });
+        }
+    });
+</script>
+
 <script th:inline="javascript">
     // Copy Code Funktion
     function copyCode(button) {

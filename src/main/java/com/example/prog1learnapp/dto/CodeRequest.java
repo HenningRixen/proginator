@@ -1,0 +1,17 @@
+package com.example.prog1learnapp.dto;
+
+public class CodeRequest {
+    private Long exerciseId;
+    private String code;
+    private String language; // "java", "python", etc.
+    
+    // Getters and Setters
+    public Long getExerciseId() { return exerciseId; }
+    public void setExerciseId(Long exerciseId) { this.exerciseId = exerciseId; }
+    
+    public String getCode() { return code; }
+    public void setCode(String code) { this.code = code; }
+    
+    public String getLanguage() { return language; }
+    public void setLanguage(String language) { this.language = language; }
+}

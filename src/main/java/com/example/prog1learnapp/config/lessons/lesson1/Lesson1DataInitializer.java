@@ -26,6 +26,7 @@ public class Lesson1DataInitializer implements LessonDataInitializer {
 
     @Override
     public void init() {
+        log.info("Initializing Lesson 1 with interactive exercises...");
 
         Lesson lesson1 = lessonRepository.findById(1L)
                 .orElseGet(() -> lessonRepository.save(
@@ -94,7 +95,7 @@ public class Lesson1DataInitializer implements LessonDataInitializer {
         }
 
         Exercise ex1 = new Exercise();
-        ex1.setTitle("Hello-World Programm");
+        ex1.setTitle("Hello-World Programm (Interactive)");
         ex1.setDescription(
                 "Erstelle ein Java-Programm, das 'Hello World' auf der Konsole ausgibt."
         );
@@ -113,8 +114,13 @@ public class Lesson1DataInitializer implements LessonDataInitializer {
                         "}"
         );
         ex1.setDifficulty("EASY");
+        ex1.setInteractive(true);
+        ex1.setLanguage("JAVA");
+        ex1.setTestCode("// Simple test to verify the program runs\nSystem.out.println(\"Hello World!\");");
+        ex1.setValidationCode("// Validation placeholder");
         ex1.setLesson(lesson1);
 
         exerciseSeedService.saveExerciseIfNotExists(ex1);
+        log.info("Lesson 1 initialized with interactive Hello-World exercise (interactive={})", ex1.isInteractive());
     }
 }

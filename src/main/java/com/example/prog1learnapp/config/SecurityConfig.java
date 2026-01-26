@@ -17,6 +17,7 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.ico", "/register", "/login", "/h2-console/**").permitAll()
+                         // .requestMatchers("/exercise/**", "/api/execution/**").permitAll()  // Removed: now require authentication
                         .anyRequest().authenticated()
                 )
                 .formLogin(form -> form

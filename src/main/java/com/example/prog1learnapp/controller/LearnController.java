@@ -102,10 +102,8 @@ public class LearnController {
     @GetMapping("/exercise/{id}")
     public String exercise(@PathVariable Long id, Model model, Principal principal) {
         User user = findUserByPrincipal(principal);
-        if (user == null) {
-            return "redirect:/login";
-        }
-
+        boolean isCompleted = false;
+        
         Optional<Exercise> exerciseOpt = exerciseRepository.findById(id);
         if (exerciseOpt.isEmpty()) {
             log.warn("Exercise with id {} not found", id);
@@ -113,11 +111,15 @@ public class LearnController {
         }
 
         Exercise exercise = exerciseOpt.get();
-        boolean isCompleted = user.getCompletedExercises().contains(id);
+        
+        if (user != null) {
+            isCompleted = user.getCompletedExercises().contains(id);
+        }
 
         model.addAttribute("exercise", exercise);
         model.addAttribute("completed", isCompleted);
         model.addAttribute("nextExercise", getNextExerciseId(exercise));
+        model.addAttribute("authenticated", user != null);
 
         return "exercise";
     }

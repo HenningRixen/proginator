@@ -20,7 +20,17 @@ public class Exercise {
     @Lob
     private String solution;
 
+    @Lob
+    private String testCode;
+
+    @Lob
+    private String validationCode;
+
     private String difficulty;
+    
+    private String language;
+    
+    private boolean interactive;
 
     @ManyToOne
     @JoinColumn(name = "lesson_id")
@@ -45,6 +55,17 @@ public class Exercise {
     public String getDifficulty() { return difficulty; }
     public void setDifficulty(String difficulty) { this.difficulty = difficulty; }
 
+    public String getTestCode() { return testCode; }
+    public void setTestCode(String testCode) { this.testCode = testCode; }
+
+    public String getValidationCode() { return validationCode; }
+    public void setValidationCode(String validationCode) { this.validationCode = validationCode; }
+
+    public String getLanguage() { return language; }
+    public void setLanguage(String language) { this.language = language; }
+
+    public boolean isInteractive() { return interactive; }
+    public void setInteractive(boolean interactive) { this.interactive = interactive; }
 
     public Lesson getLesson() { return lesson; }
     public void setLesson(Lesson lesson) { this.lesson = lesson; }
