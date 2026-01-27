@@ -1,15 +1,5 @@
 package com.example.prog1learnapp.service;
 
-import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.CreateContainerResponse;
-import com.github.dockerjava.api.command.ExecCreateCmdResponse;
-import com.github.dockerjava.api.command.InspectExecResponse;
-import com.github.dockerjava.api.model.HostConfig;
-import com.github.dockerjava.core.DefaultDockerClientConfig;
-import com.github.dockerjava.core.DockerClientBuilder;
-import com.github.dockerjava.core.DockerClientConfig;
-import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
-import com.github.dockerjava.transport.DockerHttpClient;
 import com.example.prog1learnapp.dto.ExecutionResult;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -18,9 +8,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Files;
@@ -29,7 +16,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 @Service
 public class DockerExecutionService {
@@ -38,68 +24,23 @@ public class DockerExecutionService {
     @Value("${app.code-execution.docker-enabled:true}")
     private boolean dockerEnabled;
     
-    private DockerClient dockerClient;
-    private boolean dockerAvailable = false;
     private boolean dockerCliAvailable = false;
-    private String javaImage;
-    
-    public DockerExecutionService() {
-        // Constructor left empty, initialization happens in @PostConstruct
-    }
     
     @PostConstruct
     public void init() {
         if (!dockerEnabled) {
             log.info("Docker execution is disabled via configuration");
-            dockerClient = null;
-            dockerAvailable = false;
+            dockerCliAvailable = false;
             return;
         }
         
-        // Configure Docker client to connect to local Docker daemon via Unix socket
-        DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
-                .withDockerHost("unix:///var/run/docker.sock")
-                .build();
-        log.info("Docker host configured: {}", config.getDockerHost());
+        log.info("Checking if Docker CLI is available...");
+        checkDockerCliAvailable();
         
-        try {
-            // Create HTTP Client 5 transport with Unix socket support
-            DockerHttpClient httpClient = new ApacheDockerHttpClient.Builder()
-                    .dockerHost(config.getDockerHost())
-                    .sslConfig(config.getSSLConfig())
-                    .maxConnections(100)
-                    .build();
-            
-            // Build Docker client with HTTP Client 5 transport
-            dockerClient = DockerClientBuilder.getInstance(config)
-                    .withDockerHttpClient(httpClient)
-                    .build();
-            
-            dockerAvailable = true;
-            log.info("DockerExecutionService initialized successfully with HTTP Client 5 transport");
-            
-            // Test connection and ensure image exists
-            testDockerConnection();
-            ensureImageExists();
-        } catch (Throwable t) {
-            log.warn("Failed to create Docker client with HTTP Client 5 transport. Error: {}", t.getMessage(), t);
-            log.info("Checking if Docker CLI is available as fallback...");
-            checkDockerCliAvailable();
-            dockerClient = null;
-            dockerAvailable = false;
-        }
-    }
-    
-    private void testDockerConnection() {
-        if (dockerClient == null) {
-            throw new IllegalStateException("Docker client is null");
-        }
-        try {
-            dockerClient.pingCmd().exec();
-            log.info("Docker daemon connection test successful");
-        } catch (Exception e) {
-            log.error("Docker daemon connection test failed: {}", e.getMessage());
-            throw new RuntimeException("Cannot connect to Docker daemon", e);
+        if (dockerCliAvailable) {
+            log.info("Docker CLI execution enabled");
+        } else {
+            log.info("Docker CLI not available, will use mock execution");
         }
     }
     
@@ -122,222 +63,27 @@ public class DockerExecutionService {
         }
     }
     
-    private void ensureImageExists() {
-        if (dockerClient == null) {
-            log.warn("Docker client not available, skipping image detection");
-            javaImage = null;
-            return;
-        }
-        
-        // Try custom image first
-        try {
-            dockerClient.inspectImageCmd("proginator-java-sandbox").exec();
-            javaImage = "proginator-java-sandbox";
-            log.info("Docker image proginator-java-sandbox found");
-            return;
-        } catch (Exception e) {
-            log.debug("Custom Docker image not found: {}", e.getMessage());
-        }
-        
-        // Try to pull standard OpenJDK image
-        try {
-            log.info("Pulling Docker image openjdk:17-jdk-slim...");
-            dockerClient.pullImageCmd("openjdk:17-jdk-slim").start().awaitCompletion();
-            dockerClient.inspectImageCmd("openjdk:17-jdk-slim").exec();
-            javaImage = "openjdk:17-jdk-slim";
-            log.info("Using Docker image openjdk:17-jdk-slim");
-            return;
-        } catch (Exception e) {
-            log.warn("Failed to pull openjdk:17-jdk-slim: {}", e.getMessage());
-        }
-        
-        // Last resort: try any OpenJDK image that might exist
-        try {
-            dockerClient.inspectImageCmd("openjdk:17").exec();
-            javaImage = "openjdk:17";
-            log.info("Using Docker image openjdk:17");
-        } catch (Exception e) {
-            log.error("No suitable Docker image found for Java execution. Code execution will fail.");
-            javaImage = "openjdk:17-jdk-slim"; // Will cause failure but provides a name
-        }
-    }
-    
     /**
      * Execute Java code in a secure Docker container
      */
     public ExecutionResult executeJavaCode(String code, String testCode, int timeoutMs, int memoryLimitMB) {
         Instant start = Instant.now();
         
-        // Strategy 1: Use docker-java API if available and image exists
-        if (dockerClient != null && dockerAvailable && javaImage != null) {
-            return executeWithDockerJava(code, testCode, timeoutMs, memoryLimitMB, start);
-        }
-        
-        // Strategy 2: Use Docker CLI via ProcessBuilder if available
+        // Use Docker CLI via ProcessBuilder if available
         if (dockerCliAvailable) {
-            log.info("Falling back to Docker CLI execution via ProcessBuilder");
-            return executeWithProcessBuilder(code, testCode, timeoutMs, memoryLimitMB);
+            return executeWithDockerCli(code, testCode, timeoutMs, memoryLimitMB, start);
         }
         
-        // Strategy 3: Mock execution for development
+        // Fallback to mock execution for development
         log.info("No Docker execution available, using mock execution");
         return mockExecuteJavaCode(code, testCode, start);
     }
     
     /**
-     * Execute using docker-java API (original implementation)
+     * Execute using Docker CLI via ProcessBuilder
      */
-    private ExecutionResult executeWithDockerJava(String code, String testCode, int timeoutMs, int memoryLimitMB, Instant start) {
-        ExecutionResult result = new ExecutionResult();
-        result.setStatus("RUNNING");
-        String containerId = null;
-        try {
-            // Create container with security constraints
-            HostConfig hostConfig = HostConfig.newHostConfig()
-                    .withMemory(memoryLimitMB * 1024L * 1024L) // Convert MB to bytes
-                    .withCpuQuota(50000L) // 50% CPU limit
-                    .withPidsLimit(50L)
-                    .withNetworkMode("none") // No network access
-                    .withReadonlyRootfs(true) // Read-only filesystem
-                    .withSecurityOpts(Arrays.asList("no-new-privileges:true"));
-            
-            CreateContainerResponse container = dockerClient.createContainerCmd(javaImage)
-                    .withHostConfig(hostConfig)
-                    .withUser("nobody") // Non-root user (exists in most images)
-                    .withCmd("tail", "-f", "/dev/null") // Keep container running
-                    .exec();
-            
-            containerId = container.getId();
-            dockerClient.startContainerCmd(containerId).exec();
-            
-            // Write user code to a file in container
-            String javaCode = generateJavaTestFile(code, testCode);
-            writeFileToContainer(containerId, "/tmp/Solution.java", javaCode);
-            
-            // Compile Java code
-            ExecCreateCmdResponse compileResponse = dockerClient.execCreateCmd(containerId)
-                    .withUser("nobody")
-                    .withAttachStdout(true)
-                    .withAttachStderr(true)
-                    .withCmd("sh", "-c", "cd /tmp && javac Solution.java 2>&1")
-                    .exec();
-            
-            String compileOutput = execAndGetOutput(containerId, compileResponse.getId());
-            
-            if (!compileOutput.isEmpty()) {
-                // Compilation error
-                result.setStatus("ERROR");
-                result.setError("Compilation error:\n" + compileOutput);
-                result.setTestPassed(false);
-                return result;
-            }
-            
-            // Execute the test
-            ExecCreateCmdResponse runResponse = dockerClient.execCreateCmd(containerId)
-                    .withUser("nobody")
-                    .withAttachStdout(true)
-                    .withAttachStderr(true)
-                    .withCmd("sh", "-c", "cd /tmp && timeout " + (timeoutMs / 1000) + " java Solution 2>&1")
-                    .exec();
-            
-            String runOutput = execAndGetOutput(containerId, runResponse.getId());
-            
-            // Parse test results
-            boolean testsPassed = parseTestResults(runOutput);
-            
-            result.setStatus("SUCCESS");
-            result.setOutput(runOutput);
-            result.setTestPassed(testsPassed);
-            
-        } catch (Exception e) {
-            log.error("Error executing code in Docker", e);
-            result.setStatus("ERROR");
-            result.setError("Execution error: " + e.getMessage());
-            result.setTestPassed(false);
-        } finally {
-            if (containerId != null) {
-                try {
-                    dockerClient.stopContainerCmd(containerId).withTimeout(2).exec();
-                    dockerClient.removeContainerCmd(containerId).exec();
-                } catch (Exception e) {
-                    log.warn("Failed to clean up container {}", containerId, e);
-                }
-            }
-            
-            Instant end = Instant.now();
-            result.setExecutionDuration(Duration.between(start, end).toMillis());
-        }
-        
-        return result;
-    }
-    
-    private String generateJavaTestFile(String userCode, String testCode) {
-        // Extract the class from user code (simplistic approach)
-        String className = "Solution";
-        
-        // Combine user code with test code
-        return String.format("""
-            %s
-            
-            public class %s {
-                public static void main(String[] args) {
-                    try {
-                        %s
-                        System.out.println("ALL_TESTS_PASSED");
-                    } catch (AssertionError e) {
-                        System.out.println("TEST_FAILED: " + e.getMessage());
-                        e.printStackTrace();
-                    } catch (Exception e) {
-                        System.out.println("ERROR: " + e.getMessage());
-                        e.printStackTrace();
-                    }
-                }
-            }
-            """, userCode, className, testCode);
-    }
-    
-    private void writeFileToContainer(String containerId, String path, String content) throws Exception {
-        // For simplicity, we'll use echo to write file
-        // In production, use proper file copy mechanism
-        ExecCreateCmdResponse writeResponse = dockerClient.execCreateCmd(containerId)
-                .withUser("nobody")
-                .withAttachStdout(true)
-                .withAttachStderr(true)
-                .withCmd("sh", "-c", "cat > " + path + " << 'EOF'\n" + content + "\nEOF")
-                .exec();
-        
-        execAndGetOutput(containerId, writeResponse.getId());
-    }
-    
-    private String execAndGetOutput(String containerId, String execId) throws Exception {
-        StringBuilder output = new StringBuilder();
-        
-        dockerClient.execStartCmd(execId).exec(new com.github.dockerjava.api.async.ResultCallback.Adapter<>() {
-            @Override
-            public void onNext(com.github.dockerjava.api.model.Frame frame) {
-                output.append(new String(frame.getPayload()));
-            }
-        }).awaitCompletion(30, TimeUnit.SECONDS);
-        
-        // Get exec inspection for exit code
-        InspectExecResponse inspect = dockerClient.inspectExecCmd(execId).exec();
-        if (inspect.getExitCodeLong() != null && inspect.getExitCodeLong() != 0) {
-            output.append("\nExit code: ").append(inspect.getExitCodeLong());
-        }
-        
-        return output.toString().trim();
-    }
-    
-    private boolean parseTestResults(String output) {
-        // Simple check for test success marker
-        return output.contains("ALL_TESTS_PASSED");
-    }
-    
-    /**
-     * Execute Java code using Docker CLI via ProcessBuilder (fallback when docker-java fails)
-     */
-    private ExecutionResult executeWithProcessBuilder(String code, String testCode, int timeoutMs, int memoryLimitMB) {
-        Instant start = Instant.now();
+    private ExecutionResult executeWithDockerCli(String code, String testCode, int timeoutMs, 
+                                                int memoryLimitMB, Instant start) {
         ExecutionResult result = new ExecutionResult();
         result.setStatus("RUNNING");
         
@@ -345,11 +91,20 @@ public class DockerExecutionService {
         try {
             // Create temporary directory for code
             tempDir = Files.createTempDirectory("proginator-exec-");
-            Path javaFile = tempDir.resolve("Solution.java");
+            // Determine class name for file naming
+            String className = extractClassName(code);
+            if (className == null || className.isEmpty()) {
+                className = "Solution";
+            }
+            String testClassName = className + "Test";
+            Path javaFile = tempDir.resolve(className + ".java");
+            log.debug("Using class name: {}, test class name: {}, filename: {}", className, testClassName, javaFile.getFileName());
             
-            // Generate Java test file
+            // Generate Java test file (fixes duplicate class issue)
             String javaCode = generateJavaTestFile(code, testCode);
             Files.writeString(javaFile, javaCode);
+            
+
             
             // Build Docker command with security constraints
             List<String> dockerCmd = Arrays.asList(
@@ -363,12 +118,13 @@ public class DockerExecutionService {
                 "--cap-drop=ALL",
                 "--user=runner",
                 "--workdir", "/tmp/code",
-                "-v", tempDir.toString() + ":/tmp/code:ro",
+                "-v", tempDir.toString() + ":/tmp/code",
                 "proginator-java-sandbox",
                 "sh", "-c", 
                 "cd /tmp/code && " +
-                "javac Solution.java 2>&1 && " +
-                "timeout " + (timeoutMs / 1000) + " java Solution 2>&1"
+                "javac -cp /opt/junit-platform-console-standalone.jar " + className + ".java 2>&1 && " +
+                "timeout " + (timeoutMs / 1000) + " java -cp /tmp/code:/opt/junit-platform-console-standalone.jar " +
+                "org.junit.platform.console.ConsoleLauncher --select-class=" + testClassName + " 2>&1"
             );
             
             log.info("Executing Docker command: {}", String.join(" ", dockerCmd));
@@ -389,10 +145,16 @@ public class DockerExecutionService {
             String outputStr = output.toString().trim();
             
             // Parse results
-            if (exitCode == 0) {
+            boolean isJUnitOutput = isJUnitOutput(outputStr);
+            if (exitCode == 0 || isJUnitOutput) {
                 result.setStatus("SUCCESS");
                 result.setOutput(outputStr);
-                result.setTestPassed(parseTestResults(outputStr));
+                boolean testsPassed = parseTestResults(outputStr);
+                // If exitCode != 0 but JUnit output exists, it's test failure, not error
+                if (exitCode != 0) {
+                    testsPassed = false;
+                }
+                result.setTestPassed(testsPassed);
             } else {
                 result.setStatus("ERROR");
                 result.setError("Execution failed with exit code " + exitCode + "\n" + outputStr);
@@ -400,9 +162,9 @@ public class DockerExecutionService {
             }
             
         } catch (IOException | InterruptedException e) {
-            log.error("ProcessBuilder execution failed", e);
+            log.error("Docker CLI execution failed", e);
             result.setStatus("ERROR");
-            result.setError("ProcessBuilder execution error: " + e.getMessage());
+            result.setError("Docker CLI execution error: " + e.getMessage());
             result.setTestPassed(false);
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
@@ -427,6 +189,87 @@ public class DockerExecutionService {
         }
         
         return result;
+    }
+    
+    /**
+     * Generate Java test file, handling duplicate class issue
+     */
+    private String generateJavaTestFile(String userCode, String testCode) {
+        // Extract the main class name from user code
+        String className = extractClassName(userCode);
+        if (className == null || className.isEmpty()) {
+            // No class found, default to "Solution"
+            className = "Solution";
+            // Wrap user code in a class
+            userCode = String.format("public class %s {\n%s\n}", className, userCode);
+        }
+        
+        // Determine test class name
+        String testClassName = className + "Test";
+        
+        // Generate JUnit test class
+        // Generate JUnit test class (without imports, they go at top of file)
+        String testClassBody = String.format("""
+            class %s {
+                @Test
+                void test%s() {
+                    %s instance = new %s();
+                    %s
+                }
+            }
+            """, testClassName, className, className, className, testCode);
+        
+        // Combine imports, user class, and test class in same file
+        String imports = "import org.junit.jupiter.api.Test;\nimport static org.junit.jupiter.api.Assertions.*;\n\n";
+        String finalCode = imports + userCode + "\n\n" + testClassBody;
+        log.debug("Generated Java code:\n{}", finalCode);
+        return finalCode;
+    }
+    
+    /**
+     * Extract class name from Java code (simple regex)
+     */
+    private String extractClassName(String javaCode) {
+        // Look for "public class ClassName" or "class ClassName"
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+            "(?:public\\s+)?class\\s+(\\w+)"
+        );
+        java.util.regex.Matcher matcher = pattern.matcher(javaCode);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
+    }
+    
+    private boolean parseTestResults(String output) {
+        // Parse JUnit output for test results
+        // JUnit Console Launcher outputs lines like:
+        // "Test run finished after X ms"
+        // "[X] tests successful, [Y] tests failed"
+        if (output.contains("tests successful") && output.contains("tests failed")) {
+            // Extract numbers
+            java.util.regex.Pattern successPattern = java.util.regex.Pattern.compile(
+                "(\\d+)\\s+tests successful"
+            );
+            java.util.regex.Pattern failPattern = java.util.regex.Pattern.compile(
+                "(\\d+)\\s+tests failed"
+            );
+            java.util.regex.Matcher successMatcher = successPattern.matcher(output);
+            java.util.regex.Matcher failMatcher = failPattern.matcher(output);
+            
+            if (successMatcher.find() && failMatcher.find()) {
+                int successful = Integer.parseInt(successMatcher.group(1));
+                int failed = Integer.parseInt(failMatcher.group(1));
+                return failed == 0 && successful > 0;
+            }
+        }
+        // Fallback: check for "ALL_TESTS_PASSED" for backward compatibility
+        return output.contains("ALL_TESTS_PASSED");
+    }
+    
+    private boolean isJUnitOutput(String output) {
+        return output.contains("Test run finished") || 
+               (output.contains("tests successful") && output.contains("tests failed"));
     }
     
     /**

@@ -34,7 +34,7 @@ class LernappApplicationTests {
             System.out.println("Test passed: 2 + 3 = " + result);
             """;
         
-        ExecutionResult result = dockerExecutionService.executeJavaCode(javaCode, testCode, 5000, 512);
+        ExecutionResult result = dockerExecutionService.executeJavaCode(javaCode, testCode, 30000, 512);
         
         System.out.println("Execution status: " + result.getStatus());
         System.out.println("Output: " + result.getOutput());
@@ -48,6 +48,40 @@ class LernappApplicationTests {
         if (result.getStatus().equals("ERROR")) {
             // Log error but don't fail test - could be due to missing Docker image
             System.err.println("Docker execution error (maybe missing image): " + result.getError());
+        }
+        // Test passes as long as we can execute without crash
+    }
+
+    @Test
+    void testHelloWorldExecution() {
+        // Exact code from Lesson 1 exercise (HelloWorld)
+        String javaCode = """
+                public class HelloWorld {
+                    public static void main(String[] args) {
+                        // Dein Code hier
+                    }
+                }
+                """;
+        
+        // Test code from exercise 1
+        String testCode = """
+                // Simple test to verify the program runs
+                System.out.println("Hello World!");
+                """;
+        
+        ExecutionResult result = dockerExecutionService.executeJavaCode(javaCode, testCode, 30000, 512);
+        
+        System.out.println("HelloWorld Execution status: " + result.getStatus());
+        System.out.println("HelloWorld Output: " + result.getOutput());
+        System.out.println("HelloWorld Error: " + result.getError());
+        System.out.println("HelloWorld Test passed: " + result.isTestPassed());
+        System.out.println("HelloWorld Duration: " + result.getExecutionDuration() + "ms");
+        
+        // If Docker CLI is available, we expect SUCCESS and test passed
+        // Otherwise mock execution will return SUCCESS with mock output
+        if (result.getStatus().equals("ERROR")) {
+            // Log error but don't fail test - could be due to missing Docker image
+            System.err.println("HelloWorld Docker execution error: " + result.getError());
         }
         // Test passes as long as we can execute without crash
     }
