@@ -8,6 +8,8 @@ import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
+import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
+import com.github.dockerjava.transport.DockerHttpClient;
 import com.example.prog1learnapp.dto.ExecutionResult;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -15,6 +17,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
@@ -30,6 +40,7 @@ public class DockerExecutionService {
     
     private DockerClient dockerClient;
     private boolean dockerAvailable = false;
+    private boolean dockerCliAvailable = false;
     private String javaImage;
     
     public DockerExecutionService() {
@@ -45,21 +56,69 @@ public class DockerExecutionService {
             return;
         }
         
-        // Configure Docker client to connect to local Docker daemon
-        DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder().build();
-        log.info("Docker host: {}", config.getDockerHost());
+        // Configure Docker client to connect to local Docker daemon via Unix socket
+        DockerClientConfig config = DefaultDockerClientConfig.createDefaultConfigBuilder()
+                .withDockerHost("unix:///var/run/docker.sock")
+                .build();
+        log.info("Docker host configured: {}", config.getDockerHost());
         
         try {
-            // Let DockerClientBuilder choose the best available transport
-            dockerClient = DockerClientBuilder.getInstance(config).build();
-            dockerAvailable = true;
-            log.info("DockerExecutionService initialized successfully");
+            // Create HTTP Client 5 transport with Unix socket support
+            DockerHttpClient httpClient = new ApacheDockerHttpClient.Builder()
+                    .dockerHost(config.getDockerHost())
+                    .sslConfig(config.getSSLConfig())
+                    .maxConnections(100)
+                    .build();
             
+            // Build Docker client with HTTP Client 5 transport
+            dockerClient = DockerClientBuilder.getInstance(config)
+                    .withDockerHttpClient(httpClient)
+                    .build();
+            
+            dockerAvailable = true;
+            log.info("DockerExecutionService initialized successfully with HTTP Client 5 transport");
+            
+            // Test connection and ensure image exists
+            testDockerConnection();
             ensureImageExists();
         } catch (Throwable t) {
-            log.warn("Failed to create Docker client. Code execution will be disabled. Error: {}", t.getMessage(), t);
+            log.warn("Failed to create Docker client with HTTP Client 5 transport. Error: {}", t.getMessage(), t);
+            log.info("Checking if Docker CLI is available as fallback...");
+            checkDockerCliAvailable();
             dockerClient = null;
             dockerAvailable = false;
+        }
+    }
+    
+    private void testDockerConnection() {
+        if (dockerClient == null) {
+            throw new IllegalStateException("Docker client is null");
+        }
+        try {
+            dockerClient.pingCmd().exec();
+            log.info("Docker daemon connection test successful");
+        } catch (Exception e) {
+            log.error("Docker daemon connection test failed: {}", e.getMessage());
+            throw new RuntimeException("Cannot connect to Docker daemon", e);
+        }
+    }
+    
+    private void checkDockerCliAvailable() {
+        try {
+            Process process = new ProcessBuilder("docker", "version").start();
+            int exitCode = process.waitFor();
+            dockerCliAvailable = exitCode == 0;
+            if (dockerCliAvailable) {
+                log.info("Docker CLI is available");
+            } else {
+                log.warn("Docker CLI command failed with exit code {}", exitCode);
+            }
+        } catch (IOException | InterruptedException e) {
+            log.warn("Docker CLI is not available: {}", e.getMessage());
+            dockerCliAvailable = false;
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
     
@@ -108,13 +167,28 @@ public class DockerExecutionService {
      */
     public ExecutionResult executeJavaCode(String code, String testCode, int timeoutMs, int memoryLimitMB) {
         Instant start = Instant.now();
-        ExecutionResult result = new ExecutionResult();
         
-        if (dockerClient == null || !dockerAvailable || javaImage == null) {
-            // Docker not available, run mock execution for development
-            return mockExecuteJavaCode(code, testCode, start);
+        // Strategy 1: Use docker-java API if available and image exists
+        if (dockerClient != null && dockerAvailable && javaImage != null) {
+            return executeWithDockerJava(code, testCode, timeoutMs, memoryLimitMB, start);
         }
         
+        // Strategy 2: Use Docker CLI via ProcessBuilder if available
+        if (dockerCliAvailable) {
+            log.info("Falling back to Docker CLI execution via ProcessBuilder");
+            return executeWithProcessBuilder(code, testCode, timeoutMs, memoryLimitMB);
+        }
+        
+        // Strategy 3: Mock execution for development
+        log.info("No Docker execution available, using mock execution");
+        return mockExecuteJavaCode(code, testCode, start);
+    }
+    
+    /**
+     * Execute using docker-java API (original implementation)
+     */
+    private ExecutionResult executeWithDockerJava(String code, String testCode, int timeoutMs, int memoryLimitMB, Instant start) {
+        ExecutionResult result = new ExecutionResult();
         result.setStatus("RUNNING");
         String containerId = null;
         try {
@@ -257,6 +331,102 @@ public class DockerExecutionService {
     private boolean parseTestResults(String output) {
         // Simple check for test success marker
         return output.contains("ALL_TESTS_PASSED");
+    }
+    
+    /**
+     * Execute Java code using Docker CLI via ProcessBuilder (fallback when docker-java fails)
+     */
+    private ExecutionResult executeWithProcessBuilder(String code, String testCode, int timeoutMs, int memoryLimitMB) {
+        Instant start = Instant.now();
+        ExecutionResult result = new ExecutionResult();
+        result.setStatus("RUNNING");
+        
+        Path tempDir = null;
+        try {
+            // Create temporary directory for code
+            tempDir = Files.createTempDirectory("proginator-exec-");
+            Path javaFile = tempDir.resolve("Solution.java");
+            
+            // Generate Java test file
+            String javaCode = generateJavaTestFile(code, testCode);
+            Files.writeString(javaFile, javaCode);
+            
+            // Build Docker command with security constraints
+            List<String> dockerCmd = Arrays.asList(
+                "docker", "run", "--rm",
+                "--memory=" + memoryLimitMB + "m",
+                "--cpus=0.5",
+                "--pids-limit=50",
+                "--network=none",
+                "--read-only",
+                "--security-opt=no-new-privileges",
+                "--cap-drop=ALL",
+                "--user=runner",
+                "--workdir", "/tmp/code",
+                "-v", tempDir.toString() + ":/tmp/code:ro",
+                "proginator-java-sandbox",
+                "sh", "-c", 
+                "cd /tmp/code && " +
+                "javac Solution.java 2>&1 && " +
+                "timeout " + (timeoutMs / 1000) + " java Solution 2>&1"
+            );
+            
+            log.info("Executing Docker command: {}", String.join(" ", dockerCmd));
+            
+            ProcessBuilder pb = new ProcessBuilder(dockerCmd);
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            
+            // Read output
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            StringBuilder output = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                output.append(line).append("\n");
+            }
+            
+            int exitCode = process.waitFor();
+            String outputStr = output.toString().trim();
+            
+            // Parse results
+            if (exitCode == 0) {
+                result.setStatus("SUCCESS");
+                result.setOutput(outputStr);
+                result.setTestPassed(parseTestResults(outputStr));
+            } else {
+                result.setStatus("ERROR");
+                result.setError("Execution failed with exit code " + exitCode + "\n" + outputStr);
+                result.setTestPassed(false);
+            }
+            
+        } catch (IOException | InterruptedException e) {
+            log.error("ProcessBuilder execution failed", e);
+            result.setStatus("ERROR");
+            result.setError("ProcessBuilder execution error: " + e.getMessage());
+            result.setTestPassed(false);
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+        } finally {
+            // Clean up temporary directory
+            if (tempDir != null) {
+                try {
+                    Files.walk(tempDir)
+                         .sorted((a, b) -> -a.compareTo(b))
+                         .forEach(path -> {
+                             try { Files.delete(path); } 
+                             catch (IOException e) { /* ignore */ }
+                         });
+                } catch (IOException e) {
+                    log.warn("Failed to clean up temp directory {}", tempDir, e);
+                }
+            }
+            
+            Instant end = Instant.now();
+            result.setExecutionDuration(Duration.between(start, end).toMillis());
+        }
+        
+        return result;
     }
     
     /**
