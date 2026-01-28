@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.NoSuchElementException;
 
@@ -38,6 +39,23 @@ public class GlobalExceptionHandler {
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public String handleNoHandlerFound(NoHandlerFoundException ex) {
         log.warn("No handler found for: {} {}", ex.getHttpMethod(), ex.getRequestURL());
+        return "error/404";
+    }
+
+    /**
+     * Behandelt NoResourceFoundException (fehlende statische Ressourcen).
+     * Ignoriert favicon.ico-Anfragen, die von Browsern automatisch gestellt werden.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public String handleNoResourceFound(NoResourceFoundException ex) {
+        String resourcePath = ex.getResourcePath();
+        // Ignoriere favicon.ico - Browser fragt das automatisch an
+        if (resourcePath.contains("favicon.ico")) {
+            log.debug("Favicon not found - this is expected if no favicon is configured");
+        } else {
+            log.warn("Static resource not found: {}", resourcePath);
+        }
         return "error/404";
     }
 
