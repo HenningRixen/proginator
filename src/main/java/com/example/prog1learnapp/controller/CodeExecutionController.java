@@ -66,7 +66,7 @@ public class CodeExecutionController {
             ExecutionResult result = dockerExecutionService.executeJavaCode(
                 request.getCode(),
                 testCode,
-                5000, // 5 second timeout
+                 30000, // 30 second timeout
                 512   // 512 MB memory limit
             );
             
@@ -149,7 +149,7 @@ public class CodeExecutionController {
         ExecutionResult executionResult = dockerExecutionService.executeJavaCode(
             request.getCode(),
             fullTestCode,
-            5000,
+             30000, // 30 second timeout
             512
         );
         

@@ -363,7 +363,23 @@
                     
                     const result = await response.json();
                     
-                    outputElement.textContent = result.output || result.error || 'Keine Ausgabe';
+                    // Improved error/output display
+                    let displayText = '';
+                    if (result.status === 'ERROR') {
+                        if (result.error) {
+                            displayText = 'Fehler: ' + result.error;
+                            if (result.output && result.output.trim() !== '') {
+                                displayText += '\n\nAusgabe:\n' + result.output;
+                            }
+                        } else if (result.output) {
+                            displayText = result.output;
+                        } else {
+                            displayText = 'Unbekannter Fehler';
+                        }
+                    } else {
+                        displayText = result.output || result.error || 'Keine Ausgabe';
+                    }
+                    outputElement.textContent = displayText;
                     outputElement.className = result.status === 'SUCCESS' ? 'success' : 'error';
                     
                     if (result.testPassed !== undefined) {

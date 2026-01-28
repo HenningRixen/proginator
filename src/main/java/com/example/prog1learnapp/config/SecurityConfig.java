@@ -33,9 +33,9 @@ public class SecurityConfig {
                         .deleteCookies("JSESSIONID")
                         .permitAll()
                 )
-                .csrf(csrf -> csrf
-                        .ignoringRequestMatchers("/h2-console/**", "/exercise/*/complete")
-                )
+                 .csrf(csrf -> csrf
+                         .ignoringRequestMatchers("/h2-console/**", "/exercise/*/complete")
+                 )
                 .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin())
                 );
 

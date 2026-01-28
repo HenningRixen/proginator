@@ -116,8 +116,35 @@ public class Lesson1DataInitializer implements LessonDataInitializer {
         ex1.setDifficulty("EASY");
         ex1.setInteractive(true);
         ex1.setLanguage("JAVA");
-        ex1.setTestCode("// Simple test to verify the program runs\nSystem.out.println(\"Hello World!\");");
-        ex1.setValidationCode("// Validation placeholder");
+        ex1.setTestCode("""
+            // Capture System.out output
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            java.io.PrintStream originalOut = System.out;
+            System.setOut(new java.io.PrintStream(baos));
+            try {
+                HelloWorld.main(new String[]{});
+            } finally {
+                System.setOut(originalOut);
+            }
+            String output = baos.toString().trim();
+            // Verify output contains "Hello World!"
+            assertTrue(output.contains("Hello World!"), 
+                "Expected output to contain 'Hello World!', but got: " + output);
+            """);
+        ex1.setValidationCode("""
+            // Validation: ensure program prints exactly "Hello World!"
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            java.io.PrintStream originalOut = System.out;
+            System.setOut(new java.io.PrintStream(baos));
+            try {
+                HelloWorld.main(new String[]{});
+            } finally {
+                System.setOut(originalOut);
+            }
+            String output = baos.toString().trim();
+            assertEquals("Hello World!", output, 
+                "Expected output to be exactly 'Hello World!'");
+            """);
         ex1.setLesson(lesson1);
 
         exerciseSeedService.saveExerciseIfNotExists(ex1);

@@ -143,21 +143,67 @@ public class DockerExecutionService {
             
             int exitCode = process.waitFor();
             String outputStr = output.toString().trim();
+            String strippedOutput = stripAnsiCodes(outputStr);
             
             // Parse results
-            boolean isJUnitOutput = isJUnitOutput(outputStr);
-            if (exitCode == 0 || isJUnitOutput) {
-                result.setStatus("SUCCESS");
-                result.setOutput(outputStr);
-                boolean testsPassed = parseTestResults(outputStr);
-                // If exitCode != 0 but JUnit output exists, it's test failure, not error
-                if (exitCode != 0) {
-                    testsPassed = false;
-                }
-                result.setTestPassed(testsPassed);
-            } else {
+            boolean isJUnitOutput = isJUnitOutput(strippedOutput);
+            
+            // Check for timeout first (exit code 124 from timeout command)
+            if (exitCode == 124) {
                 result.setStatus("ERROR");
-                result.setError("Execution failed with exit code " + exitCode + "\n" + outputStr);
+                int timeoutSeconds = timeoutMs / 1000;
+                result.setError("Execution timed out after " + timeoutSeconds + " seconds. The program may be stuck in an infinite loop or taking too long.");
+                result.setOutput(outputStr);
+                result.setTestPassed(false);
+            } 
+            // Check for "No tests found" scenario
+            else if (strippedOutput.contains("No tests found") || strippedOutput.contains("No test classes found")) {
+                result.setStatus("ERROR");
+                result.setError("No tests were discovered. Ensure your test class is properly annotated with @Test and the class name matches.");
+                result.setOutput(strippedOutput);
+                result.setTestPassed(false);
+            }
+            else if (exitCode == 0) {
+                // JUnit ran successfully (exit code 0)
+                result.setStatus("SUCCESS");
+                // Enhance output with summary for JUnit results
+                String enhancedOutput = strippedOutput;
+                if (isJUnitOutput) {
+                    String summary = parseJUnitSummary(strippedOutput);
+                    enhancedOutput = summary + "\n\n" + strippedOutput;
+                }
+                result.setOutput(enhancedOutput);
+                boolean testsPassed = parseTestResults(strippedOutput);
+                result.setTestPassed(testsPassed);
+            } else if (isJUnitOutput && didJUnitActuallyRunTests(strippedOutput)) {
+                // JUnit ran but exited with non-zero (test failures or other issues)
+                // But tests actually executed, so this is a test failure, not execution error
+                result.setStatus("SUCCESS");
+                // Enhance output with summary for JUnit results
+                String enhancedOutput = strippedOutput;
+                String summary = parseJUnitSummary(strippedOutput);
+                enhancedOutput = summary + "\n\n" + strippedOutput;
+                result.setOutput(enhancedOutput);
+                boolean testsPassed = parseTestResults(strippedOutput);
+                result.setTestPassed(testsPassed);
+            } else if (isJUnitOutput && !didJUnitActuallyRunTests(strippedOutput)) {
+                // JUnit printed banner but didn't run tests (likely crashed or error)
+                result.setStatus("ERROR");
+                String errorMessage = "JUnit started but failed to execute tests. ";
+                if (strippedOutput.contains("Thanks for using JUnit") && strippedOutput.trim().length() < 100) {
+                    errorMessage += "Only JUnit banner was printed, suggesting an early crash or configuration issue.";
+                } else {
+                    errorMessage += parseErrorDetails(exitCode, strippedOutput);
+                }
+                result.setError(errorMessage);
+                result.setOutput(strippedOutput);
+                result.setTestPassed(false);
+            } else {
+                // Not JUnit output at all (compilation error or other execution error)
+                result.setStatus("ERROR");
+                String errorMessage = parseErrorDetails(exitCode, strippedOutput);
+                result.setError(errorMessage);
+                result.setOutput(strippedOutput); // Keep raw output for debugging
                 result.setTestPassed(false);
             }
             
@@ -240,36 +286,180 @@ public class DockerExecutionService {
         }
         return null;
     }
-    
+
+    private String stripAnsiCodes(String input) {
+        if (input == null) return null;
+        // Remove CSI sequences (ESC[ ... [A-Za-z])
+        String stripped = input.replaceAll("\\u001B\\[[?]?[;\\d]*[A-Za-z]", "");
+        // Remove any remaining ESC characters (shouldn't be needed)
+        stripped = stripped.replace("\u001B", "");
+        return stripped;
+    }
+
     private boolean parseTestResults(String output) {
+        log.debug("Parsing test results from output: {}", output);
+        
         // Parse JUnit output for test results
-        // JUnit Console Launcher outputs lines like:
-        // "Test run finished after X ms"
-        // "[X] tests successful, [Y] tests failed"
-        if (output.contains("tests successful") && output.contains("tests failed")) {
-            // Extract numbers
-            java.util.regex.Pattern successPattern = java.util.regex.Pattern.compile(
-                "(\\d+)\\s+tests successful"
-            );
-            java.util.regex.Pattern failPattern = java.util.regex.Pattern.compile(
-                "(\\d+)\\s+tests failed"
-            );
-            java.util.regex.Matcher successMatcher = successPattern.matcher(output);
-            java.util.regex.Matcher failMatcher = failPattern.matcher(output);
+        // JUnit Console Launcher outputs multiple formats:
+        // 1. Table format with brackets:
+        //    [         1 tests successful      ]
+        //    [         0 tests failed          ]
+        // 2. Inline format: "[X] tests successful, [Y] tests failed"
+        // 3. Summary line: "X tests successful, Y tests failed"
+        
+        // Try multiple regex patterns to extract test counts
+        java.util.regex.Pattern[] successPatterns = {
+            java.util.regex.Pattern.compile("\\[(\\s*(\\d+)\\s+tests successful\\s*)\\]"),
+            java.util.regex.Pattern.compile("\\[(\\s*(\\d+)\\s*tests successful\\s*)\\]"),
+            java.util.regex.Pattern.compile("(\\d+)\\s+tests successful"),
+            java.util.regex.Pattern.compile("(\\d+)\\s*tests successful")
+        };
+        
+        java.util.regex.Pattern[] failPatterns = {
+            java.util.regex.Pattern.compile("\\[(\\s*(\\d+)\\s+tests failed\\s*)\\]"),
+            java.util.regex.Pattern.compile("\\[(\\s*(\\d+)\\s*tests failed\\s*)\\]"),
+            java.util.regex.Pattern.compile("(\\d+)\\s+tests failed"),
+            java.util.regex.Pattern.compile("(\\d+)\\s*tests failed")
+        };
+        
+        for (int i = 0; i < successPatterns.length; i++) {
+            java.util.regex.Matcher successMatcher = successPatterns[i].matcher(output);
+            java.util.regex.Matcher failMatcher = failPatterns[i].matcher(output);
             
             if (successMatcher.find() && failMatcher.find()) {
-                int successful = Integer.parseInt(successMatcher.group(1));
-                int failed = Integer.parseInt(failMatcher.group(1));
-                return failed == 0 && successful > 0;
+                try {
+                    // Group 1 might contain brackets and text, group 2 is the number in bracket patterns
+                    int groupToUse = successMatcher.groupCount() > 1 ? 2 : 1;
+                    int successful = Integer.parseInt(successMatcher.group(groupToUse));
+                    int failed = Integer.parseInt(failMatcher.group(groupToUse));
+                    
+                    log.debug("Found test results: {} successful, {} failed", successful, failed);
+                    return failed == 0 && successful > 0;
+                } catch (NumberFormatException | IllegalStateException e) {
+                    log.debug("Failed to parse test numbers with pattern {}", i, e);
+                    continue;
+                }
             }
         }
-        // Fallback: check for "ALL_TESTS_PASSED" for backward compatibility
-        return output.contains("ALL_TESTS_PASSED");
+        
+        // Check for visual indicators in JUnit tree output
+        if (output.contains("[OK]") && !output.contains("[FAILED]")) {
+            log.debug("Found [OK] indicators in JUnit tree output");
+            return true;
+        }
+        
+        // Check for "ALL_TESTS_PASSED" for backward compatibility
+        boolean allTestsPassed = output.contains("ALL_TESTS_PASSED");
+        log.debug("Fallback check for ALL_TESTS_PASSED: {}", allTestsPassed);
+        return allTestsPassed;
     }
     
     private boolean isJUnitOutput(String output) {
-        return output.contains("Test run finished") || 
+        return output.contains("Thanks for using JUnit") ||
+               output.contains("Test run finished") || 
                (output.contains("tests successful") && output.contains("tests failed"));
+    }
+    
+    private boolean didJUnitActuallyRunTests(String output) {
+        // Check if JUnit actually ran tests (not just printed banner)
+        // Evidence of test execution:
+        // 1. Test statistics (tests successful/failed)
+        // 2. JUnit tree output with [OK] or [FAILED]
+        // 3. "Test run finished" line
+        // 4. Test class names in output
+        boolean hasTestStats = output.contains("tests successful") && output.contains("tests failed");
+        boolean hasJUnitTree = output.contains("[OK]") || output.contains("[FAILED]");
+        boolean hasTestRunFinished = output.contains("Test run finished");
+        boolean hasTestClass = output.matches(".*Test\\s*\\[.*\\].*");
+        
+        return hasTestStats || hasJUnitTree || hasTestRunFinished || hasTestClass;
+    }
+    
+    private String parseErrorDetails(int exitCode, String output) {
+        // Handle timeout (exit code 124 from timeout command)
+        if (exitCode == 124) {
+            return "Execution timed out after 30 seconds. The program may be stuck in an infinite loop or taking too long.";
+        }
+        
+        // Handle compilation errors (exit code 1 from javac)
+        if (exitCode == 1) {
+            // Extract compilation error messages
+            if (output.contains("error:")) {
+                // Get the first few lines that contain error information
+                String[] lines = output.split("\n");
+                StringBuilder errorMsg = new StringBuilder("Compilation failed:\n");
+                int errorCount = 0;
+                for (String line : lines) {
+                    if (line.contains("error:") && errorCount < 3) {
+                        errorMsg.append(line.trim()).append("\n");
+                        errorCount++;
+                    }
+                }
+                if (errorCount == 0) {
+                    // Fallback to first line if no "error:" pattern found
+                    errorMsg.append(lines.length > 0 ? lines[0] : output);
+                }
+                return errorMsg.toString().trim();
+            }
+        }
+        
+        // Handle "No tests found" scenario
+        if (output.contains("No tests found") || output.contains("No test classes found")) {
+            return "No tests were discovered. Ensure your test class is properly annotated with @Test and the class name matches.";
+        }
+        
+        // Handle JUnit execution with test failures
+        if (isJUnitOutput(output)) {
+            // Extract test failure details
+            java.util.regex.Pattern failPattern = java.util.regex.Pattern.compile(
+                "(\\d+)\\s+tests failed"
+            );
+            java.util.regex.Matcher failMatcher = failPattern.matcher(output);
+            if (failMatcher.find()) {
+                int failed = Integer.parseInt(failMatcher.group(1));
+                if (failed > 0) {
+                    return "Tests failed: " + failed + " test(s) did not pass. Check the output for details.";
+                }
+            }
+        }
+        
+        // Generic error with exit code
+        return "Execution failed with exit code " + exitCode + ".\n" + 
+               (output.length() > 500 ? output.substring(0, 500) + "..." : output);
+    }
+    
+    private String parseJUnitSummary(String output) {
+        // Extract test statistics
+        java.util.regex.Pattern successPattern = java.util.regex.Pattern.compile("(\\d+)\\s+tests successful");
+        java.util.regex.Pattern failPattern = java.util.regex.Pattern.compile("(\\d+)\\s+tests failed");
+        java.util.regex.Pattern durationPattern = java.util.regex.Pattern.compile("Test run finished after (\\d+) ms");
+        
+        java.util.regex.Matcher successMatcher = successPattern.matcher(output);
+        java.util.regex.Matcher failMatcher = failPattern.matcher(output);
+        java.util.regex.Matcher durationMatcher = durationPattern.matcher(output);
+        
+        int passed = 0;
+        int failed = 0;
+        long duration = 0;
+        
+        if (successMatcher.find()) {
+            passed = Integer.parseInt(successMatcher.group(1));
+        }
+        if (failMatcher.find()) {
+            failed = Integer.parseInt(failMatcher.group(1));
+        }
+        if (durationMatcher.find()) {
+            duration = Long.parseLong(durationMatcher.group(1));
+        }
+        
+        StringBuilder summary = new StringBuilder();
+        summary.append("Test Results: ");
+        summary.append(passed).append(" passed, ");
+        summary.append(failed).append(" failed");
+        if (duration > 0) {
+            summary.append(", Duration: ").append(duration).append("ms");
+        }
+        return summary.toString();
     }
     
     /**
