@@ -18,10 +18,15 @@
         <a th:href="@{/dashboard}" class="nav-back">
             <i class="fas fa-arrow-left"></i> Zurück zum Dashboard
         </a>
-        <a th:href="@{/dashboard}" class="nav-brand">
-            <i class="fas fa-code"></i>
-            <span>Proginator</span>
-        </a>
+        <div style="display: flex; align-items: center; gap: var(--space-4);">
+            <a th:href="@{/feedback}" class="btn btn-feedback" style="padding: var(--space-2) var(--space-4); font-size: 0.875rem;">
+                <i class="fas fa-comment-alt"></i> Feedback
+            </a>
+            <a th:href="@{/dashboard}" class="nav-brand">
+                <i class="fas fa-code"></i>
+                <span>Proginator</span>
+            </a>
+        </div>
     </div>
 </nav>
 

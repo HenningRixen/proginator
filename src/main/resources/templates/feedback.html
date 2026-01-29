@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feedback - Proginator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/base.css}">
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+<!-- Navigation -->
+<nav class="navbar">
+    <div class="nav-container">
+        <a th:href="@{/dashboard}" class="nav-back">
+            <i class="fas fa-arrow-left"></i> Zurück zum Dashboard
+        </a>
+        <div class="nav-brand">
+            <i class="fas fa-code"></i>
+            <span>Proginator</span>
+        </div>
+    </div>
+</nav>
+
+<!-- Main Content -->
+<div class="container">
+    <!-- Header -->
+    <div class="feedback-header" style="margin-bottom: var(--space-8);">
+        <h1 style="color: #fff;"><i class="fas fa-comment-alt"></i> Feedback geben</h1>
+        <p class="text-muted" style="font-size: 1.0625rem; color: #fff;">
+            Teilen Sie uns mit, wie Ihnen die Plattform gefällt. Ihre Meinung hilft uns, Proginator zu verbessern.
+        </p>
+    </div>
+
+    <!-- Success/Error Messages -->
+    <div th:if="${success}" class="alert alert-success">
+        <i class="fas fa-check-circle"></i>
+        <span th:text="${success}"></span>
+    </div>
+    <div th:if="${error}" class="alert alert-error">
+        <i class="fas fa-exclamation-circle"></i>
+        <span th:text="${error}"></span>
+    </div>
+
+    <!-- Feedback Form -->
+    <div class="feedback-card" style="background: var(--white); border-radius: var(--radius-xl); padding: var(--space-8); box-shadow: var(--shadow-lg);">
+        <form th:action="@{/feedback}" method="post" id="feedback-form">
+            <!-- Star Rating -->
+            <div class="form-group" style="margin-bottom: var(--space-8);">
+                <label style="display: block; margin-bottom: var(--space-3); font-weight: 600; color: var(--gray-700);">
+                    <i class="fas fa-star" style="color: var(--warning);"></i>
+                    Wie bewerten Sie Proginator? (1 = schlecht, 5 = ausgezeichnet)
+                </label>
+                <div class="star-rating" style="display: flex; gap: var(--space-2); margin-bottom: var(--space-3);">
+                    <input type="radio" id="star1" name="rating" value="1">
+                    <label for="star1" class="star-label" title="1 Stern">
+                        <i class="far fa-star"></i>
+                    </label>
+                    <input type="radio" id="star2" name="rating" value="2">
+                    <label for="star2" class="star-label" title="2 Stern">
+                        <i class="far fa-star"></i>
+                    </label>
+                    <input type="radio" id="star3" name="rating" value="3">
+                    <label for="star3" class="star-label" title="3 Sterne">
+                        <i class="far fa-star"></i>
+                    </label>
+                    <input type="radio" id="star4" name="rating" value="4">
+                    <label for="star4" class="star-label" title="4 Sterne">
+                        <i class="far fa-star"></i>
+                    </label>
+                    <input type="radio" id="star5" name="rating" value="5" required>
+                    <label for="star5" class="star-label" title="5 Sterne">
+                        <i class="far fa-star"></i>
+                    </label>
+                </div>
+                <small class="text-muted">Bitte wählen Sie eine Bewertung aus.</small>
+            </div>
+
+            <!-- Feedback Text -->
+            <div class="form-group" style="margin-bottom: var(--space-6);">
+                <label for="feedback-text" style="display: block; margin-bottom: var(--space-3); font-weight: 600; color: var(--gray-700);">
+                    <i class="fas fa-comment"></i>
+                    Ihr Feedback (max. 2000 Zeichen)
+                </label>
+                <textarea id="feedback-text" name="text" rows="8" maxlength="2000" 
+                          style="width: 100%; padding: var(--space-4); border: 2px solid var(--gray-200); border-radius: var(--radius-md); font-size: 1rem; font-family: 'Inter', sans-serif; transition: var(--transition); resize: vertical;"
+                          placeholder="Was gefällt Ihnen gut? Was können wir verbessern? Ihre Anregungen sind uns wichtig."
+                          required></textarea>
+                <div class="char-counter" style="display: flex; justify-content: space-between; margin-top: var(--space-2);">
+                    <small class="text-muted">Verbleibende Zeichen: <span id="char-count">2000</span></small>
+                    <small class="text-muted"><span id="char-used">0</span> / 2000</small>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary" style="padding: var(--space-4) var(--space-8);">
+                    <i class="fas fa-paper-plane"></i> Feedback absenden
+                </button>
+                <a th:href="@{/dashboard}" class="btn" style="margin-left: var(--space-3); background: transparent; border: 2px solid var(--gray-300); color: var(--gray-600);">
+                    <i class="fas fa-times"></i> Abbrechen
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Info Box -->
+    <div class="info-box" style="margin-top: var(--space-8); padding: var(--space-6); background: var(--info-light); border-radius: var(--radius-lg); border-left: 4px solid var(--info);">
+        <h3 style="color: var(--info); margin-bottom: var(--space-2);">
+            <i class="fas fa-info-circle"></i> Hinweis
+        </h3>
+        <p style="color: var(--gray-700); margin-bottom: 0;">
+            Ihr Feedback wird anonym gespeichert und hilft uns, die Lernplattform kontinuierlich zu verbessern.
+            Bei technischen Problemen oder Fragen wenden Sie sich bitte direkt an Ihren Dozenten.
+        </p>
+    </div>
+</div>
+
+<footer class="footer">
+    <p>© 2026 Duale Hochschule SH - Programmieren 1 Lernplattform | Version 1.0</p>
+</footer>
+
+<script th:inline="javascript">
+    document.addEventListener('DOMContentLoaded', function() {
+        const textarea = document.getElementById('feedback-text');
+        const charCount = document.getElementById('char-count');
+        const charUsed = document.getElementById('char-used');
+        const maxLength = 2000;
+
+        // Character counter
+        function updateCharCounter() {
+            const length = textarea.value.length;
+            const remaining = maxLength - length;
+            charCount.textContent = remaining;
+            charUsed.textContent = length;
+            
+            if (remaining < 50) {
+                charCount.style.color = 'var(--warning)';
+            } else if (remaining < 10) {
+                charCount.style.color = 'var(--danger)';
+            } else {
+                charCount.style.color = 'var(--gray-500)';
+            }
+        }
+
+        textarea.addEventListener('input', updateCharCounter);
+        updateCharCounter(); // Initial count
+
+        // Star rating interactivity
+        const starInputs = document.querySelectorAll('.star-rating input[type="radio"]');
+        const starLabels = document.querySelectorAll('.star-rating .star-label');
+        
+        starInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                const value = parseInt(this.value);
+                starLabels.forEach((label, index) => {
+                    const icon = label.querySelector('i');
+                    if (index < value) {
+                        icon.className = 'fas fa-star';
+                        icon.style.color = 'var(--warning)';
+                    } else {
+                        icon.className = 'far fa-star';
+                        icon.style.color = 'var(--gray-400)';
+                    }
+                });
+            });
+        });
+
+        // Initialize star icons (empty)
+        starLabels.forEach(label => {
+            const icon = label.querySelector('i');
+            icon.style.color = 'var(--gray-400)';
+            icon.style.transition = 'color var(--transition)';
+            icon.style.cursor = 'pointer';
+            icon.style.fontSize = '1.5rem';
+        });
+
+        // Form submission validation
+        const form = document.getElementById('feedback-form');
+        form.addEventListener('submit', function(e) {
+            const rating = document.querySelector('input[name="rating"]:checked');
+            if (!rating) {
+                e.preventDefault();
+                alert('Bitte wählen Sie eine Bewertung aus.');
+                return;
+            }
+            const text = textarea.value.trim();
+            if (text.length === 0) {
+                e.preventDefault();
+                alert('Bitte geben Sie Feedback-Text ein.');
+                return;
+            }
+            // Optional: Show loading state
+            const submitBtn = form.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wird gesendet...';
+        });
+    });
+</script>
+</body>
+</html>
