@@ -1,46 +1,46 @@
 # AGENTS.md
 
-This file contains guidelines for agentic coding agents working on this Spring Boot learning application.
+Guidelines for coding agents working in this repository (`proginator` / `lernapp`).
 
-## Project Overview
+## Project Snapshot
 
-This is a Spring Boot 3.5.9 web application for programming education (Prog1 LearnApp). It uses:
-- Java 17
-- Spring Boot with Web, Security, Data JPA, Validation, Thymeleaf
-- H2 database (dev) / PostgreSQL (prod)
-- Maven build system
+- Stack: Spring Boot `3.5.9`, Java `17`, Maven Wrapper (`./mvnw`)
+- Main package: `com.example.prog1learnapp`
+- Build coordinates: `uni.prog1:lernapp`
+- UI: Thymeleaf templates + static CSS/JS
+- Security: Spring Security form login
+- DB:
+  - `dev` profile: H2 in-memory (`jdbc:h2:mem:testdb`)
+  - `prod` profile: PostgreSQL (`jdbc:postgresql://localhost:5432/lernapp`)
+- Special feature: Java code execution in Docker (`DockerExecutionService`)
 
-## Build and Test Commands
+## Working Commands
 
-### Maven Commands
 ```bash
-# Build the project
+# Full build
 ./mvnw clean install
 
-# Run the application (development profile)
+# Run app in development profile (recommended locally)
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 
 # Run tests
 ./mvnw test
 
-# Run a single test class
-./mvnw test -Dtest=TestClassName
-
-# Run a single test method
-./mvnw test -Dtest=TestClassName#testMethodName
-
-# Skip tests during build
-./mvnw clean install -DskipTests
-
-# Generate test coverage report (if Jacoco is configured)
-./mvnw jacoco:report
+# Run one test class / one test method
+./mvnw test -Dtest=LernappApplicationTests
+./mvnw test -Dtest=LernappApplicationTests#testDockerExecution
 ```
 
-### Development Setup
-Set VM options in IntelliJ: `-Dspring.profiles.active=dev`
+IntelliJ VM option for local dev:
 
-### Database
-For production PostgreSQL, use:
+```bash
+-Dspring.profiles.active=dev
+```
+
+## Runtime Dependencies
+
+### PostgreSQL for `prod`
+
 ```bash
 docker run --name lernapp-postgres \
   -e POSTGRES_DB=lernapp \
@@ -50,119 +50,110 @@ docker run --name lernapp-postgres \
   -d postgres:16
 ```
 
-## Code Style Guidelines
+### Docker image for code execution sandbox
 
-### Package Structure
-- Base package: `com.example.prog1learnapp`
-- Controllers: `com.example.prog1learnapp.controller`
-- Models/Entities: `com.example.prog1learnapp.model`
-- Repositories: `com.example.prog1learnapp.repository`
-- Configuration: `com.example.prog1learnapp.config`
+Build before testing execution endpoints/features:
 
-### Import Order
-1. `java.*` and `javax.*` imports
-2. Third-party library imports (org.*, com.*)
-3. Project-specific imports
-4. Empty line between groups
-
-Example:
-```java
-import java.util.List;
-import java.util.Set;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Controller;
-
-import com.example.prog1learnapp.model.User;
+```bash
+./build-docker-image.sh
 ```
 
-### Naming Conventions
-- **Classes**: PascalCase (`UserController`, `ExerciseRepository`)
-- **Methods**: camelCase (`findUserByPrincipal`, `getNextExerciseId`)
-- **Variables**: camelCase (`lessonProgress`, `completedExercises`)
-- **Constants**: UPPER_SNAKE_CASE (`DEFAULT_SUCCESS_URL`)
-- **Packages**: lowercase, dot-separated (`com.example.prog1learnapp`)
+This creates image `proginator-java-sandbox` used by `DockerExecutionService`.
 
-### Entity Annotations
-Use JPA annotations consistently:
-```java
-@Entity
-@Table(name = "table_name")
-public class EntityName {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    
-    @Column(unique = true, nullable = false)
-    private String uniqueField;
-    
-    @Column(length = 2000)
-    private String longTextField;
-    
-    @Lob
-    private String largeTextField;
-}
-```
+## Current Architecture
 
-### Spring Annotations
-- Controllers: `@Controller` for MVC, `@RestController` for API
-- Services: `@Service` (if using service layer)
-- Repositories: `@Repository` (automatically applied to interfaces extending JpaRepository)
-- Configuration: `@Configuration`, `@Bean`
-- Dependencies: `@Autowired` or constructor injection (preferred)
+- Application entrypoint: `src/main/java/com/example/prog1learnapp/Prog1LearnApp.java`
+- MVC controllers: `controller/` (`AuthController`, `LearnController`)
+- REST controller: `controller/CodeExecutionController`
+- Security/config: `config/`
+  - `SecurityConfig`, `CustomUserDetailsService`, `GlobalExceptionHandler`
+  - `TestUserInitializer` (`@Profile("dev")`)
+  - lesson seeders in `config/lessons/**`
+- Persistence:
+  - entities in `model/`
+  - repositories in `repository/`
+- Code execution logic: `service/DockerExecutionService`
+- Templates: `src/main/resources/templates/`
+- Static files: `src/main/resources/static/`
 
-### Logging
-- Use SLF4J Logger: `private static final Logger log = LoggerFactory.getLogger(ClassName.class);`
-- Log levels: `log.debug()` for detailed debugging, `log.info()` for important events, `log.warn()` for potential issues, `log.error()` for errors
+## Coding Standards
 
-### Exception Handling
-- Use `@ControllerAdvice` with `@ExceptionHandler` for global exception handling
-- Return appropriate HTTP status codes
-- Log errors with context information
+### Package and naming rules
 
-### Security Configuration
-- Configure endpoints with appropriate authentication/authorization
-- Use BCrypt for password encoding
-- Configure CSRF protection for web forms
-- Allow static resources access
+- Keep Java code under `com.example.prog1learnapp.*`
+- Class names: PascalCase
+- Methods/fields: camelCase
+- Constants: UPPER_SNAKE_CASE
+- Prefer meaningful names; avoid abbreviations without context
 
-### Database Configuration
-- Development: H2 in-memory database with `ddl-auto: update`
-- Production: PostgreSQL with appropriate connection settings
-- Use `@Transactional` for service methods that modify data
+### Dependency injection
 
-### Frontend Templates
-- Use Thymeleaf templates in `src/main/resources/templates/`
-- Include base template with fragments for consistent layout
-- Use Thymeleaf Security extras for user-specific content
+- Prefer constructor injection (already the dominant pattern in this project)
+- Avoid field injection unless there is a strong reason
 
-### Testing
-- Place tests in `src/test/java`
-- Use `@SpringBootTest` for integration tests
-- Use `@WebMvcTest` for controller tests
-- Use `@DataJpaTest` for repository tests
-- Mock dependencies when testing individual components
+### Logging and output
 
-### Code Quality
-- Avoid System.out.println() - use proper logging
-- Use constructor injection over field injection
-- Keep methods small and focused on single responsibility
-- Use meaningful variable and method names
-- Add Javadoc comments for public methods and complex logic
+- Use SLF4J (`LoggerFactory.getLogger(...)`)
+- Never use `System.out.println` / `System.err.println` in application code
+- Use:
+  - `debug` for detailed flow
+  - `info` for lifecycle/business events
+  - `warn` for recoverable anomalies
+  - `error` for failures
 
-### Error Pages
-- Create custom error pages in `templates/error/` (404.html, 500.html)
-- Configure in `application.yaml`
+### Persistence and transactions
 
-### Static Resources
-- CSS files in `src/main/resources/static/css/`
-- JavaScript files in `src/main/resources/static/js/`
-- Images in `src/main/resources/static/images/`
+- Use JPA annotations consistently (`@Entity`, `@Table`, `@Column`, `@Lob`, relations)
+- Use `@Transactional` for write operations that must be atomic
+- When adding seed data, keep initialization idempotent (check existence before insert)
 
-### Security Best Practices
+### Validation and error handling
+
+- Validate user input at controller boundaries
+- Reuse global handling via `GlobalExceptionHandler` for expected failures
+- Return suitable HTTP status codes for REST endpoints
+
+### Security
+
+- Keep BCrypt password encoding
+- Preserve route protection model from `SecurityConfig`
+- Do not unintentionally expose `/api/execution/**` or exercise completion endpoints
+- Keep CSRF decisions explicit when changing form/API flows
 - Never commit secrets or passwords
 - Use environment variables for sensitive configuration
 - Validate all user input
 - Use HTTPS in production
 - Implement proper session management
+
+## Profile and Config Notes
+
+- `application.yaml` contains common app + Thymeleaf + server config
+- `application-dev.yaml`:
+  - H2 console enabled at `/h2-console`
+  - `spring.jpa.hibernate.ddl-auto=update`
+  - `app.code-execution.docker-enabled=true`
+- `application-prod.yaml` currently uses PostgreSQL and `ddl-auto=create`
+  - Treat schema strategy changes as a deliberate decision and call them out in PR notes
+
+## Testing Guidance
+
+- Tests live in `src/test/java`
+- Current suite is integration-oriented (`@SpringBootTest`)
+- When adding features:
+  - add focused unit/integration tests for changed behavior
+  - prefer deterministic tests (avoid hard dependency on local Docker unless required)
+  - if Docker is required, document prerequisites in test comments/PR notes
+
+## Frontend and Templates
+
+- Keep Thymeleaf template names aligned with controller returns:
+  - `login`, `register`, `dashboard`, `lesson`, `exercise`
+  - error pages in `templates/error/404.html` and `templates/error/500.html`
+- Keep static assets organized by type under `static/css`, `static/js`, `static/images`
+
+## Agent Change Rules
+
+- Make minimal, targeted edits
+- Do not silently refactor broad areas unrelated to the task
+- Preserve existing language in user-facing German content unless asked otherwise
+- If modifying security, persistence, or execution sandbox behavior, include brief risk notes

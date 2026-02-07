@@ -379,6 +379,19 @@
                     } else {
                         displayText = result.output || result.error || 'Keine Ausgabe';
                     }
+
+                    if (result.executionDuration !== undefined && result.executionDuration !== null) {
+                        displayText += `\n\nLaufzeit gesamt: ${result.executionDuration} ms`;
+                    }
+                    if (result.dockerStartupMs !== undefined && result.dockerStartupMs !== null) {
+                        displayText += `\nSetup/Transfer: ${result.dockerStartupMs} ms`;
+                    }
+                    if (result.compileMs !== undefined && result.compileMs !== null) {
+                        displayText += `\nKompilierung: ${result.compileMs} ms`;
+                    }
+                    if (result.testRunMs !== undefined && result.testRunMs !== null) {
+                        displayText += `\nTestausführung: ${result.testRunMs} ms`;
+                    }
                     outputElement.textContent = displayText;
                     outputElement.className = result.status === 'SUCCESS' ? 'success' : 'error';
                     

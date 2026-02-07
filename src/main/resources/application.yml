@@ -28,3 +28,11 @@ logging:
     de.uni.prog1: DEBUG
     org.springframework.security: INFO
     org.hibernate.SQL: WARN
+
+app:
+  code-execution:
+    mode: warm-container
+    pool-size: 1
+    warm-image: proginator-java-sandbox
+    default-memory-mb: 512
+    default-cpus: 2.0

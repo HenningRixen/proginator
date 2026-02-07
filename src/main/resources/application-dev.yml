@@ -22,3 +22,8 @@ spring:
 app:
   code-execution:
     docker-enabled: true
+    mode: warm-container
+    pool-size: 1
+    warm-image: proginator-java-sandbox
+    default-memory-mb: 512
+    default-cpus: 2.0
