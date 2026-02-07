@@ -30,6 +30,7 @@ public class DockerExecutionService {
 
     private static final String JUNIT_JAR = "/opt/junit-platform-console-standalone.jar";
     private static final String WARM_CONTAINER_PREFIX = "proginator-exec-warm-";
+    private static final String CUSTOM_RUNNER_CLASS = "Prog1InternalTestRunner";
 
     @Value("${app.code-execution.docker-enabled:true}")
     private boolean dockerEnabled;
@@ -217,8 +218,6 @@ public class DockerExecutionService {
             if (className == null || className.isEmpty()) {
                 className = "Solution";
             }
-            String testClassName = className + "Test";
-
             Path javaFile = tempDir.resolve(className + ".java");
             String javaCode = generateJavaTestFile(code, testCode);
             Files.writeString(javaFile, javaCode);
@@ -278,10 +277,7 @@ public class DockerExecutionService {
                     "cd " + jobDir + " && timeout " + (timeoutMs / 1000) + " java " +
                             "-XX:TieredStopAtLevel=1 -XX:+UseSerialGC -Xms64m -Xmx256m " +
                             "-cp " + jobDir + ":" + JUNIT_JAR + " " +
-                            "org.junit.platform.console.ConsoleLauncher execute " +
-                            "--disable-banner " +
-                            "--include-engine=junit-jupiter " +
-                            "--select-class=" + testClassName + " 2>&1"
+                            CUSTOM_RUNNER_CLASS + " 2>&1"
             ));
             result.setTestRunMs(Duration.between(testStart, Instant.now()).toMillis());
 
@@ -340,7 +336,6 @@ public class DockerExecutionService {
             if (className == null || className.isEmpty()) {
                 className = "Solution";
             }
-            String testClassName = className + "Test";
             Path javaFile = tempDir.resolve(className + ".java");
             String javaCode = generateJavaTestFile(code, testCode);
             Files.writeString(javaFile, javaCode);
@@ -365,10 +360,7 @@ public class DockerExecutionService {
                             "timeout " + (timeoutMs / 1000) + " java " +
                             "-XX:TieredStopAtLevel=1 -XX:+UseSerialGC -Xms64m -Xmx256m " +
                             "-cp /tmp/code:" + JUNIT_JAR + " " +
-                            "org.junit.platform.console.ConsoleLauncher execute " +
-                            "--disable-banner " +
-                            "--include-engine=junit-jupiter " +
-                            "--select-class=" + testClassName + " 2>&1"
+                            CUSTOM_RUNNER_CLASS + " 2>&1"
             );
 
             CommandResult processResult = runCommand(dockerCmd);
@@ -404,6 +396,20 @@ public class DockerExecutionService {
     private void applyExecutionResult(ExecutionResult result, int exitCode, String output) {
         String strippedOutput = stripAnsiCodes(output == null ? "" : output.trim());
         boolean isJUnitOutput = isJUnitOutput(strippedOutput);
+
+        if (strippedOutput.contains("ALL_TESTS_PASSED")) {
+            result.setStatus("SUCCESS");
+            result.setOutput(parseCustomRunnerSummary(strippedOutput) + "\n\n" + strippedOutput);
+            result.setTestPassed(true);
+            return;
+        }
+
+        if (strippedOutput.contains("TEST_FAILED:")) {
+            result.setStatus("SUCCESS");
+            result.setOutput(strippedOutput);
+            result.setTestPassed(false);
+            return;
+        }
 
         if (exitCode == 124) {
             result.setStatus("ERROR");
@@ -534,16 +540,38 @@ public class DockerExecutionService {
         String testClassName = className + "Test";
         String testClassBody = String.format("""
             class %s {
-                @Test
-                void test%s() {
+                void runTest() {
                     %s instance = new %s();
                     %s
                 }
             }
-            """, testClassName, className, className, className, testCode);
+            """, testClassName, className, className, testCode);
 
-        String imports = "import org.junit.jupiter.api.Test;\nimport static org.junit.jupiter.api.Assertions.*;\n\n";
-        return imports + userCode + "\n\n" + testClassBody;
+        String runnerClass = String.format("""
+            class %s {
+                public static void main(String[] args) {
+                    long start = System.currentTimeMillis();
+                    %s testInstance = new %s();
+                    try {
+                        testInstance.runTest();
+                        long duration = System.currentTimeMillis() - start;
+                        System.out.println("ALL_TESTS_PASSED");
+                        System.out.println("TEST_DURATION_MS=" + duration);
+                    } catch (AssertionError e) {
+                        System.out.println("TEST_FAILED: " + (e.getMessage() == null ? "Assertion failed" : e.getMessage()));
+                        e.printStackTrace(System.out);
+                        System.exit(1);
+                    } catch (Throwable e) {
+                        System.out.println("EXECUTION_ERROR: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
+                        e.printStackTrace(System.out);
+                        System.exit(1);
+                    }
+                }
+            }
+            """, CUSTOM_RUNNER_CLASS, testClassName, testClassName);
+
+        String imports = "import static org.junit.jupiter.api.Assertions.*;\n\n";
+        return imports + userCode + "\n\n" + testClassBody + "\n\n" + runnerClass;
     }
 
     private String extractClassName(String javaCode) {
@@ -694,6 +722,15 @@ public class DockerExecutionService {
             summary.append(", Duration: ").append(duration).append("ms");
         }
         return summary.toString();
+    }
+
+    private String parseCustomRunnerSummary(String output) {
+        java.util.regex.Pattern durationPattern = java.util.regex.Pattern.compile("TEST_DURATION_MS=(\\d+)");
+        java.util.regex.Matcher matcher = durationPattern.matcher(output);
+        if (matcher.find()) {
+            return "Test Results: 1 passed, 0 failed, Duration: " + matcher.group(1) + "ms";
+        }
+        return "Test Results: 1 passed, 0 failed";
     }
 
     private ExecutionResult mockExecuteJavaCode(String code, String testCode, Instant start) {

@@ -60,6 +60,8 @@ Build before testing execution endpoints/features:
 
 This creates image `proginator-java-sandbox` used by `DockerExecutionService`.
 
+Code execution now uses warm reusable Docker containers (default mode) plus a lightweight custom Java runner (`Prog1InternalTestRunner`) instead of JUnit ConsoleLauncher for lower latency.
+
 ## Current Architecture
 
 - Application entrypoint: `src/main/java/com/example/prog1learnapp/Prog1LearnApp.java`
@@ -73,6 +75,10 @@ This creates image `proginator-java-sandbox` used by `DockerExecutionService`.
   - entities in `model/`
   - repositories in `repository/`
 - Code execution logic: `service/DockerExecutionService`
+  - Warm container pool mode (`app.code-execution.mode=warm-container`)
+  - Fallback mode: legacy one-container-per-run (`legacy-run`)
+  - Per-run performance metrics in API response:
+    - `executionDuration`, `dockerStartupMs`, `compileMs`, `testRunMs`
 - Templates: `src/main/resources/templates/`
 - Static files: `src/main/resources/static/`
 
@@ -124,15 +130,27 @@ This creates image `proginator-java-sandbox` used by `DockerExecutionService`.
 - Validate all user input
 - Use HTTPS in production
 - Implement proper session management
+- Keep strict Docker isolation for code execution:
+  - non-root user
+  - `--network=none`
+  - `--cap-drop=ALL`
+  - `--security-opt=no-new-privileges`
+  - read-only rootfs with dedicated writable tmpfs for `/tmp`
 
 ## Profile and Config Notes
 
-- `application.yaml` contains common app + Thymeleaf + server config
-- `application-dev.yaml`:
+- `application.yml` contains common app + Thymeleaf + server config
+- `application-dev.yml`:
   - H2 console enabled at `/h2-console`
   - `spring.jpa.hibernate.ddl-auto=update`
   - `app.code-execution.docker-enabled=true`
-- `application-prod.yaml` currently uses PostgreSQL and `ddl-auto=create`
+- code execution defaults:
+  - `app.code-execution.mode=warm-container`
+  - `app.code-execution.pool-size=1`
+  - `app.code-execution.warm-image=proginator-java-sandbox`
+  - `app.code-execution.default-memory-mb=512`
+  - `app.code-execution.default-cpus=2.0`
+- `application-prod.yml` currently uses PostgreSQL and `ddl-auto=create`
   - Treat schema strategy changes as a deliberate decision and call them out in PR notes
 
 ## Testing Guidance
@@ -143,6 +161,11 @@ This creates image `proginator-java-sandbox` used by `DockerExecutionService`.
   - add focused unit/integration tests for changed behavior
   - prefer deterministic tests (avoid hard dependency on local Docker unless required)
   - if Docker is required, document prerequisites in test comments/PR notes
+- For execution performance validation, use the timing fields returned by `/api/execution/run` and compare:
+  - setup/transfer (`dockerStartupMs`)
+  - compilation (`compileMs`)
+  - test execution (`testRunMs`)
+  - total (`executionDuration`)
 
 ## Frontend and Templates
 
