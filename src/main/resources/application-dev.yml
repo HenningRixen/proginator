@@ -27,3 +27,5 @@ app:
     warm-image: proginator-java-sandbox
     default-memory-mb: 512
     default-cpus: 2.0
+  lsp:
+    enabled: true

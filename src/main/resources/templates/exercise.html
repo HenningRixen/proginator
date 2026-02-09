@@ -197,9 +197,14 @@
 </footer>
 
 <script th:src="@{/js/main.js}"></script>
+<script th:if="${exercise.interactive}" th:src="@{/js/exercise-lsp.js}"></script>
     <script th:if="${exercise.interactive}" th:inline="javascript">
     // Monaco Editor Initialization with fallback
     let editor = null;
+    let lspClient = null;
+    const lspEnabled = /*[[${lspEnabled}]]*/ false;
+    const exerciseId = /*[[${exercise.id}]]*/ 0;
+    const lspWorkspaceUri = /*[[${lspWorkspaceUri}]]*/ 'file:///tmp/workspaces';
     const starterCode = `/*
  * Geben Sie hier Ihren Code ein.
  * Verwenden Sie die bereitgestellten Starter-Code als Vorlage.
@@ -264,6 +269,15 @@
                             vertical: 'visible'
                         }
                     });
+
+                    if (window.initExerciseLsp && lspEnabled) {
+                        lspClient = window.initExerciseLsp({
+                            enabled: lspEnabled,
+                            editor: editor,
+                            exerciseId: exerciseId,
+                            workspaceUri: lspWorkspaceUri
+                        });
+                    }
                     
                     // Force a layout update
                     if (editor && editor.layout) {
@@ -423,6 +437,12 @@
                 outputElement.className = '';
                 testResults.classList.add('hidden');
             });
+        }
+    });
+
+    window.addEventListener('beforeunload', function() {
+        if (lspClient && lspClient.dispose) {
+            lspClient.dispose();
         }
     });
 </script>

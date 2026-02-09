@@ -36,3 +36,16 @@ app:
     warm-image: proginator-java-sandbox
     default-memory-mb: 512
     default-cpus: 2.0
+  lsp:
+    enabled: true
+    image: proginator-jdtls
+    connect-timeout-ms: 15000
+    idle-ttl-seconds: 300
+    max-sessions: 50
+    memory-mb: 512
+    cpus: 1.0
+    max-message-bytes: 1000000
+    cleanup-interval-ms: 30000
+    allowed-origins:
+      - "http://localhost:*"
+      - "https://localhost:*"

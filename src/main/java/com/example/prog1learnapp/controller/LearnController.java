@@ -6,8 +6,10 @@ import com.example.prog1learnapp.model.Exercise;
 import com.example.prog1learnapp.repository.UserRepository;
 import com.example.prog1learnapp.repository.LessonRepository;
 import com.example.prog1learnapp.repository.ExerciseRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -24,13 +26,16 @@ public class LearnController {
     private final UserRepository userRepository;
     private final LessonRepository lessonRepository;
     private final ExerciseRepository exerciseRepository;
+    private final boolean lspEnabled;
 
     public LearnController(UserRepository userRepository,
                            LessonRepository lessonRepository,
-                           ExerciseRepository exerciseRepository) {
+                           ExerciseRepository exerciseRepository,
+                           @Value("${app.lsp.enabled:false}") boolean lspEnabled) {
         this.userRepository = userRepository;
         this.lessonRepository = lessonRepository;
         this.exerciseRepository = exerciseRepository;
+        this.lspEnabled = lspEnabled;
     }
 
     @GetMapping("/dashboard")
@@ -100,7 +105,7 @@ public class LearnController {
     }
 
     @GetMapping("/exercise/{id}")
-    public String exercise(@PathVariable Long id, Model model, Principal principal) {
+    public String exercise(@PathVariable Long id, Model model, Principal principal, HttpServletRequest request) {
         User user = findUserByPrincipal(principal);
         boolean isCompleted = false;
         
@@ -120,6 +125,8 @@ public class LearnController {
         model.addAttribute("completed", isCompleted);
         model.addAttribute("nextExercise", getNextExerciseId(exercise));
         model.addAttribute("authenticated", user != null);
+        model.addAttribute("lspEnabled", lspEnabled);
+        model.addAttribute("lspWorkspaceUri", "file:///tmp/workspaces/test_" + request.getSession().getId() + "/project");
 
         return "exercise";
     }
