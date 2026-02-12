@@ -3,80 +3,147 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_csrf" th:if="${_csrf != null}" th:content="${_csrf.token}">
+    <meta name="_csrf_header" th:if="${_csrf != null}" th:content="${_csrf.headerName}">
     <title>Exam Modus - Proginator</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" th:href="@{/css/base.css}">
+    <link rel="stylesheet" th:href="@{/css/exercise.css}">
     <link rel="stylesheet" th:href="@{/css/exam.css}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
 </head>
 <body>
 <nav class="navbar">
     <div class="nav-container">
-        <a th:href="@{/dashboard}" class="nav-back">Zurueck zum Dashboard</a>
-        <a th:href="@{/exam/start}" class="btn btn-primary">Neue Pruefung starten</a>
+        <a th:href="@{/dashboard}" class="nav-back">
+            <i class="fas fa-arrow-left"></i> Zurueck zum Dashboard
+        </a>
+        <a th:href="@{/exam/start}" class="btn btn-primary">
+            <i class="fas fa-rotate-right"></i> Neue Pruefung starten
+        </a>
     </div>
 </nav>
 
-<main class="container">
-    <header>
+<main class="container exam-container">
+    <header class="exam-page-header">
         <h1>Exam Modus</h1>
         <p>3 Aufgaben wurden fuer diesen Versuch ausgewaehlt.</p>
+        <p class="exam-attempt-id" th:if="${examAttemptId != null}" th:text="'Versuch: ' + ${examAttemptId}"></p>
     </header>
+
+    <div class="alert alert-error" th:if="${examError != null}">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span th:text="${examError}"></span>
+    </div>
 
     <section th:if="${examExercises != null and !examExercises.isEmpty()}">
         <article th:each="exercise, iterStat : ${examExercises}" class="exam-exercise-card">
             <div class="exam-exercise-header">
                 <span class="badge badge-lesson">
+                    <i class="fas fa-calendar-week"></i>
                     Woche <span th:text="${exercise.lesson.id}"></span>
                 </span>
-                <span th:text="'Aufgabe ' + ${iterStat.count}"></span>
+                <span class="exam-position" th:text="'Aufgabe ' + ${iterStat.count}"></span>
             </div>
 
             <h2 th:text="${exercise.title}"></h2>
 
-            <div class="task-card">
-                <div th:utext="${exercise.description}"></div>
+            <div class="task-section">
+                <h3><i class="fas fa-clipboard-list"></i> Aufgabenstellung</h3>
+                <div class="task-card">
+                    <div th:utext="${exercise.description}"></div>
+                </div>
             </div>
 
-            <h3>Starter-Code</h3>
-            <pre><code th:text="${exercise.starterCode}"></code></pre>
+            <div class="code-section">
+                <h3><i class="fas fa-code"></i> Starter-Code</h3>
+                <div class="code-header">
+                    <span class="code-filename">Main.java</span>
+                    <button class="btn-copy" type="button" onclick="copyExamCode(this)" data-tooltip="Code kopieren">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <pre><code class="language-java" th:text="${exercise.starterCode}"></code></pre>
+            </div>
 
             <div class="exam-actions">
                 <button type="button"
                         class="btn btn-success exam-complete-btn"
                         th:data-exercise-id="${exercise.id}"
                         th:disabled="${examCompletedIds.contains(exercise.id)}">
-                    Als erledigt markieren
+                    <i class="fas fa-check"></i> Als erledigt markieren
                 </button>
                 <span class="exam-complete-status"
+                      th:classappend="${examCompletedIds.contains(exercise.id)} ? ' done'"
                       th:text="${examCompletedIds.contains(exercise.id)} ? 'Erledigt' : 'Offen'"></span>
             </div>
         </article>
 
         <section class="exam-solution-section">
-            <h2>Loesungen</h2>
-            <button type="button" id="show-solutions-btn" class="btn btn-primary">
-                Loesungen anzeigen
+            <h2><i class="fas fa-lightbulb"></i> Loesungen</h2>
+            <p id="solution-progress-text"
+               class="solution-progress-text"
+               th:text="${examCompletedCount} + ' von ' + ${examTotalCount} + ' Aufgaben erledigt'"></p>
+
+            <button type="button"
+                    id="show-solutions-btn"
+                    class="btn btn-primary"
+                    th:disabled="${!canRevealSolutions}"
+                    th:attr="data-completed-count=${examCompletedCount},data-total-count=${examTotalCount}">
+                <i class="fas fa-eye"></i> Loesungen anzeigen
             </button>
 
-            <div id="exam-solutions-container" hidden>
+            <p class="solution-gate-hint"
+               id="solution-gate-hint"
+               th:if="${!canRevealSolutions}">
+                Loesungen werden freigeschaltet, sobald alle 3 Aufgaben erledigt sind.
+            </p>
+
+            <div id="exam-solutions-container" hidden aria-hidden="true">
                 <article th:each="exercise, iterStat : ${examExercises}" class="exam-solution-card">
                     <h3 th:text="'Loesung Aufgabe ' + ${iterStat.count} + ': ' + ${exercise.title}"></h3>
-                    <pre><code th:text="${exercise.solution}"></code></pre>
+                    <div class="code-header">
+                        <span class="code-filename">Main.java</span>
+                        <button class="btn-copy" type="button" onclick="copyExamCode(this)" data-tooltip="Code kopieren">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <pre><code class="language-java" th:text="${exercise.solution}"></code></pre>
                 </article>
             </div>
         </section>
     </section>
 
     <section th:if="${examExercises == null or examExercises.isEmpty()}">
-        <p>Keine Exam-Aufgaben vorhanden.</p>
+        <div class="alert alert-error">
+            <i class="fas fa-exclamation-circle"></i>
+            <span>Keine Exam-Aufgaben vorhanden.</span>
+        </div>
     </section>
 </main>
 
 <footer class="footer">
     <p>© 2026 Duale Hochschule SH - Programmieren 1 Lernplattform</p>
 </footer>
+<script>
+    function copyExamCode(button) {
+        const codeBlock = button.closest('.code-header').nextElementSibling.querySelector('code');
+        const text = codeBlock.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            const icon = button.querySelector('i');
+            icon.className = 'fas fa-check';
+            button.classList.add('copied');
+            setTimeout(() => {
+                icon.className = 'fas fa-copy';
+                button.classList.remove('copied');
+            }, 1500);
+        });
+    }
+</script>
 <script th:src="@{/js/exam.js}"></script>
 </body>
 </html>

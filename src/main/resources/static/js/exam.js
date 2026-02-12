@@ -1,10 +1,22 @@
 document.addEventListener("DOMContentLoaded", function () {
+    if (window.hljs) {
+        window.hljs.highlightAll();
+    }
+
     const revealBtn = document.getElementById("show-solutions-btn");
     const solutionsContainer = document.getElementById("exam-solutions-container");
+    const progressText = document.getElementById("solution-progress-text");
+    const gateHint = document.getElementById("solution-gate-hint");
 
     if (revealBtn && solutionsContainer) {
+        solutionsContainer.hidden = true;
+        solutionsContainer.classList.remove("is-visible");
+        solutionsContainer.setAttribute("aria-hidden", "true");
+
         revealBtn.addEventListener("click", function () {
             solutionsContainer.hidden = false;
+            solutionsContainer.classList.add("is-visible");
+            solutionsContainer.setAttribute("aria-hidden", "false");
             revealBtn.disabled = true;
             revealBtn.textContent = "Loesungen sind sichtbar";
         });
@@ -39,6 +51,22 @@ document.addEventListener("DOMContentLoaded", function () {
                         if (status) {
                             status.textContent = "Erledigt";
                             status.classList.add("done");
+                        }
+
+                        if (revealBtn && progressText) {
+                            const completedCount = Number(data.completedCount ?? revealBtn.dataset.completedCount ?? 0);
+                            const totalCount = Number(data.totalCount ?? revealBtn.dataset.totalCount ?? 3);
+                            revealBtn.dataset.completedCount = String(completedCount);
+                            revealBtn.dataset.totalCount = String(totalCount);
+                            progressText.textContent = completedCount + " von " + totalCount + " Aufgaben erledigt";
+
+                            const canReveal = data.canRevealSolutions === true || completedCount >= totalCount;
+                            if (canReveal) {
+                                revealBtn.disabled = false;
+                                if (gateHint) {
+                                    gateHint.textContent = "Alle Aufgaben erledigt. Du kannst jetzt die Loesungen anzeigen.";
+                                }
+                            }
                         }
                         return;
                     }

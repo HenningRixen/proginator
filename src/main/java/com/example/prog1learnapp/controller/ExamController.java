@@ -4,6 +4,8 @@ import com.example.prog1learnapp.model.ExamSessionState;
 import com.example.prog1learnapp.model.Exercise;
 import com.example.prog1learnapp.service.ExamSelectionException;
 import com.example.prog1learnapp.service.ExamSelectionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -24,6 +26,7 @@ import jakarta.servlet.http.HttpSession;
 public class ExamController {
 
     public static final String EXAM_SESSION_KEY = "EXAM_SESSION_STATE";
+    private static final Logger log = LoggerFactory.getLogger(ExamController.class);
 
     private final ExamSelectionService examSelectionService;
 
@@ -39,6 +42,7 @@ public class ExamController {
 
         ExamSessionState examState = examSelectionService.startNewExam();
         session.setAttribute(EXAM_SESSION_KEY, examState);
+        log.info("Started exam attempt {} with exercise IDs {}", examState.getAttemptId(), examState.getSelectedExerciseIds());
         return "redirect:/exam";
     }
 
@@ -56,17 +60,34 @@ public class ExamController {
         try {
             List<Exercise> examExercises = examSelectionService.resolveSelectedExercises(examState);
             Set<Long> examCompletedIds = new HashSet<>(examState.getCompletedExerciseIds());
+            int examCompletedCount = examCompletedIds.size();
+            int examTotalCount = examExercises.size();
+            boolean canRevealSolutions = examTotalCount > 0 && examCompletedCount >= examTotalCount;
+
+            model.addAttribute("examAttemptId", examState.getAttemptId());
             model.addAttribute("examExercises", examExercises);
             model.addAttribute("examCompletedIds", examCompletedIds);
+            model.addAttribute("examCompletedCount", examCompletedCount);
+            model.addAttribute("examTotalCount", examTotalCount);
+            model.addAttribute("canRevealSolutions", canRevealSolutions);
+            log.debug("Rendering exam attempt {} with exercise IDs {}", examState.getAttemptId(), examState.getSelectedExerciseIds());
             return "exam";
         } catch (ExamSelectionException ex) {
-            return "redirect:/exam/start";
+            model.addAttribute("examAttemptId", examState.getAttemptId());
+            model.addAttribute("examError", ex.getMessage());
+            model.addAttribute("examExercises", List.of());
+            model.addAttribute("examCompletedIds", Set.of());
+            model.addAttribute("examCompletedCount", 0);
+            model.addAttribute("examTotalCount", 0);
+            model.addAttribute("canRevealSolutions", false);
+            log.warn("Failed to resolve exam attempt {}: {}", examState.getAttemptId(), ex.getMessage());
+            return "exam";
         }
     }
 
     @PostMapping("/exam/{exerciseId}/complete")
     @ResponseBody
-    public ResponseEntity<Map<String, String>> completeExamExercise(@PathVariable Long exerciseId,
+    public ResponseEntity<Map<String, Object>> completeExamExercise(@PathVariable Long exerciseId,
                                                                     Principal principal,
                                                                     HttpSession session) {
         if (principal == null) {
@@ -82,7 +103,16 @@ public class ExamController {
         try {
             examSelectionService.markCompleted(examState, exerciseId);
             session.setAttribute(EXAM_SESSION_KEY, examState);
-            return ResponseEntity.ok(Map.of("status", "success"));
+            int completedCount = examState.getCompletedExerciseIds().size();
+            int totalCount = examState.getSelectedExerciseIds().size();
+            boolean canRevealSolutions = totalCount > 0 && completedCount >= totalCount;
+
+            return ResponseEntity.ok(Map.of(
+                    "status", "success",
+                    "completedCount", completedCount,
+                    "totalCount", totalCount,
+                    "canRevealSolutions", canRevealSolutions
+            ));
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(Map.of("status", "error", "message", ex.getMessage()));
         }

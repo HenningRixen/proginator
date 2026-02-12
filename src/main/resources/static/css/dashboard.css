@@ -159,6 +159,10 @@
     margin: 0;
 }
 
+.exam-entry-content strong {
+    color: var(--primary);
+}
+
 .exam-entry-btn {
     flex-shrink: 0;
     white-space: nowrap;
@@ -485,4 +489,3 @@
         grid-template-columns: 1fr;
     }
 }
-
