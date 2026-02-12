@@ -1,0 +1,119 @@
+/* =====================================================
+   EXAM.CSS - Styles fuer Exam-Seite
+   ===================================================== */
+
+.exam-exercise-card {
+    background: var(--white);
+    border-radius: var(--radius-xl);
+    padding: var(--space-6);
+    margin-bottom: var(--space-6);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--gray-100);
+}
+
+.exam-exercise-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+    color: var(--gray-600);
+    font-weight: 600;
+}
+
+.exam-exercise-card h2 {
+    margin-bottom: var(--space-4);
+}
+
+.exam-exercise-card h3 {
+    margin-top: var(--space-6);
+    margin-bottom: var(--space-3);
+    color: var(--gray-700);
+    font-size: 1.125rem;
+}
+
+.task-card {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    color: var(--gray-700);
+}
+
+.exam-exercise-card pre,
+.exam-solution-card pre {
+    background: var(--gray-900);
+    color: var(--gray-100);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    overflow-x: auto;
+}
+
+.exam-exercise-card code,
+.exam-solution-card code {
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 0.9rem;
+}
+
+.exam-actions {
+    margin-top: var(--space-5);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+}
+
+.exam-complete-status {
+    font-weight: 600;
+    color: var(--gray-600);
+}
+
+.exam-complete-status.done {
+    color: var(--success);
+}
+
+.exam-solution-section {
+    margin-top: var(--space-10);
+    background: var(--white);
+    border-radius: var(--radius-xl);
+    padding: var(--space-6);
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--gray-100);
+}
+
+.exam-solution-section h2 {
+    margin-bottom: var(--space-4);
+}
+
+#show-solutions-btn {
+    margin-bottom: var(--space-5);
+}
+
+#exam-solutions-container {
+    display: grid;
+    gap: var(--space-5);
+}
+
+.exam-solution-card {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+}
+
+.exam-solution-card h3 {
+    margin-bottom: var(--space-3);
+    color: var(--gray-700);
+    font-size: 1rem;
+}
+
+@media (max-width: 768px) {
+    .exam-exercise-card,
+    .exam-solution-section {
+        padding: var(--space-5);
+    }
+
+    .exam-actions .btn {
+        width: 100%;
+    }
+}

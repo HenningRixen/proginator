@@ -123,6 +123,47 @@
     font-size: 1rem;
 }
 
+/* === Exam Entry === */
+.exam-entry-section {
+    margin-bottom: var(--space-10);
+}
+
+.exam-entry-card {
+    background: var(--white);
+    border: 1px solid var(--gray-100);
+    border-left: 6px solid var(--secondary);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-6);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-6);
+}
+
+.exam-entry-content h2 {
+    margin-bottom: var(--space-2);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    color: var(--gray-800);
+    font-size: 1.5rem;
+}
+
+.exam-entry-content h2 i {
+    color: var(--secondary);
+}
+
+.exam-entry-content p {
+    color: var(--gray-600);
+    margin: 0;
+}
+
+.exam-entry-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
 /* === Lessons Section === */
 .lessons-section {
     margin-bottom: var(--space-12);
@@ -401,6 +442,15 @@
 }
 
 @media (max-width: 768px) {
+    .exam-entry-card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .exam-entry-btn {
+        width: 100%;
+    }
+
     .dashboard-header {
         gap: var(--space-6);
     }
@@ -435,5 +485,4 @@
         grid-template-columns: 1fr;
     }
 }
-
 

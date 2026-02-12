@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Modus - Proginator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/base.css}">
+    <link rel="stylesheet" th:href="@{/css/exam.css}">
+</head>
+<body>
+<nav class="navbar">
+    <div class="nav-container">
+        <a th:href="@{/dashboard}" class="nav-back">Zurueck zum Dashboard</a>
+        <a th:href="@{/exam/start}" class="btn btn-primary">Neue Pruefung starten</a>
+    </div>
+</nav>
+
+<main class="container">
+    <header>
+        <h1>Exam Modus</h1>
+        <p>3 Aufgaben wurden fuer diesen Versuch ausgewaehlt.</p>
+    </header>
+
+    <section th:if="${examExercises != null and !examExercises.isEmpty()}">
+        <article th:each="exercise, iterStat : ${examExercises}" class="exam-exercise-card">
+            <div class="exam-exercise-header">
+                <span class="badge badge-lesson">
+                    Woche <span th:text="${exercise.lesson.id}"></span>
+                </span>
+                <span th:text="'Aufgabe ' + ${iterStat.count}"></span>
+            </div>
+
+            <h2 th:text="${exercise.title}"></h2>
+
+            <div class="task-card">
+                <div th:utext="${exercise.description}"></div>
+            </div>
+
+            <h3>Starter-Code</h3>
+            <pre><code th:text="${exercise.starterCode}"></code></pre>
+
+            <div class="exam-actions">
+                <button type="button"
+                        class="btn btn-success exam-complete-btn"
+                        th:data-exercise-id="${exercise.id}"
+                        th:disabled="${examCompletedIds.contains(exercise.id)}">
+                    Als erledigt markieren
+                </button>
+                <span class="exam-complete-status"
+                      th:text="${examCompletedIds.contains(exercise.id)} ? 'Erledigt' : 'Offen'"></span>
+            </div>
+        </article>
+
+        <section class="exam-solution-section">
+            <h2>Loesungen</h2>
+            <button type="button" id="show-solutions-btn" class="btn btn-primary">
+                Loesungen anzeigen
+            </button>
+
+            <div id="exam-solutions-container" hidden>
+                <article th:each="exercise, iterStat : ${examExercises}" class="exam-solution-card">
+                    <h3 th:text="'Loesung Aufgabe ' + ${iterStat.count} + ': ' + ${exercise.title}"></h3>
+                    <pre><code th:text="${exercise.solution}"></code></pre>
+                </article>
+            </div>
+        </section>
+    </section>
+
+    <section th:if="${examExercises == null or examExercises.isEmpty()}">
+        <p>Keine Exam-Aufgaben vorhanden.</p>
+    </section>
+</main>
+
+<footer class="footer">
+    <p>© 2026 Duale Hochschule SH - Programmieren 1 Lernplattform</p>
+</footer>
+<script th:src="@{/js/exam.js}"></script>
+</body>
+</html>
