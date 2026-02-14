@@ -1,6 +1,7 @@
 package com.example.prog1learnapp.controller;
 
 import com.example.prog1learnapp.model.Feedback;
+import com.example.prog1learnapp.model.StudyProgram;
 import com.example.prog1learnapp.repository.FeedbackRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,7 +34,8 @@ public class FeedbackController {
     @PostMapping("/feedback")
     public String submitFeedback(
             @RequestParam String text,
-            @RequestParam Integer rating,
+            @RequestParam(required = false) Integer rating,
+            @RequestParam(required = false) String studyProgram,
             RedirectAttributes redirectAttributes) {
 
         // Basic validation
@@ -53,11 +55,17 @@ public class FeedbackController {
             return "redirect:/feedback";
         }
 
+        StudyProgram parsedStudyProgram = StudyProgram.fromValue(studyProgram);
+        if (parsedStudyProgram == null) {
+            redirectAttributes.addFlashAttribute("error", "Bitte wählen Sie einen Studiengang (Winf oder Ainf).");
+            return "redirect:/feedback";
+        }
+
         // Save feedback
-        Feedback feedback = new Feedback(text.trim(), rating);
+        Feedback feedback = new Feedback(text.trim(), rating, parsedStudyProgram);
         feedbackRepository.save(feedback);
 
-        log.info("New feedback submitted with rating {}", rating);
+        log.info("New feedback submitted with rating {} and study program {}", rating, parsedStudyProgram);
         redirectAttributes.addFlashAttribute("success", 
             "Vielen Dank für Ihr Feedback! Ihre Bewertung wurde gespeichert.");
         

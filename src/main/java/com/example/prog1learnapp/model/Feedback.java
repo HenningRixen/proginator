@@ -16,15 +16,20 @@ public class Feedback {
     @Column(nullable = false)
     private Integer rating; // 1-5
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "study_program", length = 4)
+    private StudyProgram studyProgram;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     public Feedback() {
     }
 
-    public Feedback(String text, Integer rating) {
+    public Feedback(String text, Integer rating, StudyProgram studyProgram) {
         this.text = text;
         this.rating = rating;
+        this.studyProgram = studyProgram;
     }
 
     @PrePersist
@@ -41,6 +46,9 @@ public class Feedback {
 
     public Integer getRating() { return rating; }
     public void setRating(Integer rating) { this.rating = rating; }
+
+    public StudyProgram getStudyProgram() { return studyProgram; }
+    public void setStudyProgram(StudyProgram studyProgram) { this.studyProgram = studyProgram; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
