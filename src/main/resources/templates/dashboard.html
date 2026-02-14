@@ -22,6 +22,9 @@
         <div class="nav-user">
             <i class="fas fa-user-circle"></i>
             <span th:text="${user.displayName}"></span>
+            <a th:href="@{/feedback}" class="btn btn-feedback" style="padding: var(--space-2) var(--space-4); font-size: 0.875rem; margin-right: var(--space-2);">
+                <i class="fas fa-comment-alt"></i> Feedback
+            </a>
             <form th:action="@{/logout}" method="post" class="logout-form">
                 <button type="submit" class="btn-logout">
                     <i class="fas fa-sign-out-alt"></i> Logout
@@ -61,6 +64,27 @@
                     <span th:text="${totalCount - completedCount} + ' verbleibend'"></span>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Exam Mode Entry -->
+    <div class="exam-entry-section">
+        <div class="exam-entry-card">
+            <div class="exam-entry-content">
+                <h2><i class="fas fa-graduation-cap"></i> Exam Modus</h2>
+                <p th:if="${!hasActiveExamAttempt}">
+                    Starte eine Prüfung mit 3 zufälligen Aufgaben
+                    (Bereiche 3-5, 6-8 und 9-11).
+                </p>
+                <p th:if="${hasActiveExamAttempt}">
+                    Laufende Pruefung: <strong th:text="${examCompletedCount} + '/' + ${examTotalCount}"></strong> erledigt.
+                    Du kannst deinen Versuch fortsetzen, ohne neu zu mischen.
+                </p>
+            </div>
+            <a th:href="${hasActiveExamAttempt} ? @{/exam} : @{/exam/start}" class="btn btn-primary exam-entry-btn">
+                <i class="fas" th:classappend="${hasActiveExamAttempt} ? ' fa-arrow-right' : ' fa-play'"></i>
+                <span th:text="${hasActiveExamAttempt} ? 'Exam fortsetzen' : 'Exam Modus starten'"></span>
+            </a>
         </div>
     </div>
 

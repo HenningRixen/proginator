@@ -1,5 +1,6 @@
 package com.example.prog1learnapp.controller;
 
+import com.example.prog1learnapp.model.ExamSessionState;
 import com.example.prog1learnapp.model.User;
 import com.example.prog1learnapp.model.Lesson;
 import com.example.prog1learnapp.model.Exercise;
@@ -7,6 +8,7 @@ import com.example.prog1learnapp.repository.UserRepository;
 import com.example.prog1learnapp.repository.LessonRepository;
 import com.example.prog1learnapp.repository.ExerciseRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,7 +41,7 @@ public class LearnController {
     }
 
     @GetMapping("/dashboard")
-    public String dashboard(Model model, Principal principal) {
+    public String dashboard(Model model, Principal principal, HttpSession session) {
         User user = findUserByPrincipal(principal);
         if (user == null) {
             log.warn("User not found for principal: {}", principal.getName());
@@ -75,6 +77,25 @@ public class LearnController {
         model.addAttribute("completedCount", completedExercises);
         model.addAttribute("totalCount", totalExercises);
 
+        Object examStateObj = session.getAttribute(ExamController.EXAM_SESSION_KEY);
+        boolean hasActiveExamAttempt = false;
+        int examCompletedCount = 0;
+        int examTotalCount = 0;
+
+        if (examStateObj instanceof ExamSessionState examState &&
+                examState.getSelectedExerciseIds() != null &&
+                !examState.getSelectedExerciseIds().isEmpty()) {
+            hasActiveExamAttempt = true;
+            examCompletedCount = examState.getCompletedExerciseIds() != null
+                    ? examState.getCompletedExerciseIds().size()
+                    : 0;
+            examTotalCount = examState.getSelectedExerciseIds().size();
+        }
+
+        model.addAttribute("hasActiveExamAttempt", hasActiveExamAttempt);
+        model.addAttribute("examCompletedCount", examCompletedCount);
+        model.addAttribute("examTotalCount", examTotalCount);
+
         log.debug("Dashboard loaded for user '{}' with {}% progress", user.getUsername(), overallProgress);
         return "dashboard";
     }
@@ -108,7 +129,7 @@ public class LearnController {
     public String exercise(@PathVariable Long id, Model model, Principal principal, HttpServletRequest request) {
         User user = findUserByPrincipal(principal);
         boolean isCompleted = false;
-        
+
         Optional<Exercise> exerciseOpt = exerciseRepository.findById(id);
         if (exerciseOpt.isEmpty()) {
             log.warn("Exercise with id {} not found", id);
@@ -116,7 +137,7 @@ public class LearnController {
         }
 
         Exercise exercise = exerciseOpt.get();
-        
+
         if (user != null) {
             isCompleted = user.getCompletedExercises().contains(id);
         }
