@@ -8,6 +8,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
 
@@ -86,5 +87,22 @@ class LspWebSocketObservabilityIntegrationTest {
         org.junit.jupiter.api.Assertions.assertTrue(output.getOut().contains("stage=bridgeStart"));
         org.junit.jupiter.api.Assertions.assertTrue(output.getOut().contains("runtimeDiagnostics="));
         org.junit.jupiter.api.Assertions.assertTrue(output.getOut().contains("wsId=ws-bridge-fail-1"));
+    }
+
+    @Test
+    void websocketHandler_closesWithServerErrorWhenSessionOpenFails() throws Exception {
+        JdtLsContainerService containerService = Mockito.mock(JdtLsContainerService.class);
+        LspSessionManager sessionManager = Mockito.mock(LspSessionManager.class);
+        when(containerService.isEnabled()).thenReturn(true);
+        Mockito.doThrow(new IOException("backend unavailable")).when(sessionManager).open(any());
+
+        WebSocketSession webSocketSession = Mockito.mock(WebSocketSession.class);
+        when(webSocketSession.getId()).thenReturn("ws-fail-1");
+        when(webSocketSession.getPrincipal()).thenReturn(() -> "alice");
+
+        LspWebSocketHandler handler = new LspWebSocketHandler(sessionManager, containerService);
+        handler.afterConnectionEstablished(webSocketSession);
+
+        verify(webSocketSession).close(CloseStatus.SERVER_ERROR.withReason("LSP backend unavailable"));
     }
 }

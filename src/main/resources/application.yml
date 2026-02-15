@@ -40,6 +40,7 @@ app:
     enabled: true
     image: proginator-jdtls
     connect-timeout-ms: 15000
+    startup-grace-ms: 750
     idle-ttl-seconds: 300
     max-sessions: 50
     memory-mb: 512

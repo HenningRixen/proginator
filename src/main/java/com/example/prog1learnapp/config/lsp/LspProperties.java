@@ -12,6 +12,7 @@ public class LspProperties {
     private boolean enabled = false;
     private String image = "proginator-jdtls";
     private long connectTimeoutMs = 15000;
+    private long startupGraceMs = 750;
     private long idleTtlSeconds = 300;
     private int maxSessions = 50;
     private int memoryMb = 512;
@@ -42,6 +43,14 @@ public class LspProperties {
 
     public void setConnectTimeoutMs(long connectTimeoutMs) {
         this.connectTimeoutMs = connectTimeoutMs;
+    }
+
+    public long getStartupGraceMs() {
+        return startupGraceMs;
+    }
+
+    public void setStartupGraceMs(long startupGraceMs) {
+        this.startupGraceMs = startupGraceMs;
     }
 
     public long getIdleTtlSeconds() {

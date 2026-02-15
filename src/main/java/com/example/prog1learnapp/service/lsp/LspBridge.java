@@ -24,6 +24,7 @@ public class LspBridge {
     private final String containerName;
     private final String workspaceKey;
     private final long connectTimeoutMs;
+    private final long startupGraceMs;
     private final WebSocketSession webSocketSession;
 
     private Process process;
@@ -37,10 +38,12 @@ public class LspBridge {
     public LspBridge(String containerName,
                      String workspaceKey,
                      long connectTimeoutMs,
+                     long startupGraceMs,
                      WebSocketSession webSocketSession) {
         this.containerName = containerName;
         this.workspaceKey = workspaceKey;
         this.connectTimeoutMs = connectTimeoutMs;
+        this.startupGraceMs = startupGraceMs;
         this.webSocketSession = webSocketSession;
     }
 
@@ -76,7 +79,7 @@ public class LspBridge {
         ioExecutor.submit(this::forwardLspMessagesToClient);
         ioExecutor.submit(this::drainStderrLogs);
 
-        waitForEarlyFailure();
+        waitForEarlyFailure(process, startupGraceMs);
         log.debug("LSP bridge started container={} workspaceKey={} totalStartMs={}",
                 containerName, workspaceKey, elapsedMs(startNs));
     }
@@ -158,10 +161,11 @@ public class LspBridge {
         }
     }
 
-    private void waitForEarlyFailure() throws IOException {
-        long deadline = System.currentTimeMillis() + connectTimeoutMs;
+    void waitForEarlyFailure(Process observedProcess, long graceMs) throws IOException {
+        long effectiveGraceMs = Math.max(0L, graceMs);
+        long deadline = System.currentTimeMillis() + effectiveGraceMs;
         while (System.currentTimeMillis() < deadline) {
-            if (process == null || !process.isAlive()) {
+            if (observedProcess == null || !observedProcess.isAlive()) {
                 String stderrSummary = summarizeStderrTail();
                 String runtimeDiagnostics = collectRuntimeDiagnostics();
                 throw new IOException("JDT LS failed to start in container " + containerName +
@@ -169,7 +173,7 @@ public class LspBridge {
                         " runtimeDiagnostics=\"" + runtimeDiagnostics + "\"");
             }
             try {
-                Thread.sleep(100);
+                Thread.sleep(50);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new IOException("Interrupted while waiting for JDT LS startup", e);

@@ -45,6 +45,7 @@ public class LspSessionManager {
                 containerName.get(),
                 sanitize(workspaceKey),
                 lspProperties.getConnectTimeoutMs(),
+                lspProperties.getStartupGraceMs(),
                 webSocketSession
         );
 

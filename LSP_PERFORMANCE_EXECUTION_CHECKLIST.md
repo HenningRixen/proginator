@@ -99,27 +99,27 @@ Speed up LSP readiness for interactive exercises (diagnostics + completion + hov
 ## Phase 1 - Remove Artificial Startup Blocking (Highest Priority)
 
 ### Objectives
-- [ ] Eliminate unnecessary startup delay caused by current bridge startup wait behavior.
+- [x] Eliminate unnecessary startup delay caused by current bridge startup wait behavior.
 
 ### Code Touchpoints
 - `src/main/java/com/example/prog1learnapp/service/lsp/LspBridge.java`
-  - [ ] Refactor `waitForEarlyFailure()` so it does not block full `connectTimeoutMs` while process is alive.
-  - [ ] Keep fail-fast for true early process exit.
-  - [ ] Add short startup grace window (e.g., 300-1000ms) instead of full timeout blocking.
+  - [x] Refactor `waitForEarlyFailure()` so it does not block full `connectTimeoutMs` while process is alive.
+  - [x] Keep fail-fast for true early process exit.
+  - [x] Add short startup grace window (e.g., 300-1000ms) instead of full timeout blocking.
 - `src/main/java/com/example/prog1learnapp/config/lsp/LspProperties.java`
-  - [ ] Optional: add dedicated property for startup grace if needed.
+  - [x] Optional: add dedicated property for startup grace if needed.
 - `src/main/resources/application.yml`
-  - [ ] Optional: configure startup grace property.
+  - [x] Optional: configure startup grace property.
 
 ### Test Cases
-- [ ] Unit-level behavior test: process alive after short grace => startup succeeds quickly.
-- [ ] Unit-level behavior test: process exits immediately => startup fails fast with meaningful error.
-- [ ] Integration smoke: open interactive exercise and verify LSP readiness no longer waits near 15s.
-- [ ] Regression: ensure bridge still closes WS on real backend failure.
+- [x] Unit-level behavior test: process alive after short grace => startup succeeds quickly.
+- [x] Unit-level behavior test: process exits immediately => startup fails fast with meaningful error.
+- [x] Integration smoke: open interactive exercise and verify LSP readiness no longer waits near 15s.
+- [x] Regression: ensure bridge still closes WS on real backend failure.
 
 ### Exit Criteria
-- [ ] No fixed long startup wait in normal path.
-- [ ] Cold and warm startup significantly improved vs baseline.
+- [x] No fixed long startup wait in normal path.
+- [x] Cold and warm startup significantly improved vs baseline.
 
 ---
 
