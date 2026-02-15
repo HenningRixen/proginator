@@ -2,6 +2,7 @@ package com.example.prog1learnapp.controller.lsp;
 
 import com.example.prog1learnapp.config.lsp.LspProperties;
 import com.example.prog1learnapp.service.lsp.JdtLsContainerService;
+import com.example.prog1learnapp.service.lsp.LspBridgeFactory;
 import com.example.prog1learnapp.service.lsp.LspSessionManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,7 +48,7 @@ class LspWebSocketObservabilityIntegrationTest {
         when(containerService.acquireContainer(anyString())).thenReturn(Optional.empty());
 
         LspProperties lspProperties = new LspProperties();
-        LspSessionManager sessionManager = new LspSessionManager(containerService, lspProperties);
+        LspSessionManager sessionManager = new LspSessionManager(containerService, lspProperties, new LspBridgeFactory());
 
         WebSocketSession webSocketSession = Mockito.mock(WebSocketSession.class);
         when(webSocketSession.getId()).thenReturn("ws-open-1");
@@ -71,7 +72,7 @@ class LspWebSocketObservabilityIntegrationTest {
         when(containerService.acquireContainer(anyString())).thenReturn(Optional.of("phase0-non-existing-container"));
         LspProperties lspProperties = new LspProperties();
         lspProperties.setConnectTimeoutMs(500);
-        LspSessionManager sessionManager = new LspSessionManager(containerService, lspProperties);
+        LspSessionManager sessionManager = new LspSessionManager(containerService, lspProperties, new LspBridgeFactory());
 
         LspWebSocketHandler handler = new LspWebSocketHandler(sessionManager, containerService);
         WebSocketSession webSocketSession = Mockito.mock(WebSocketSession.class);

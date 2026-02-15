@@ -126,31 +126,31 @@ Speed up LSP readiness for interactive exercises (diagnostics + completion + hov
 ## Phase 2 - Warm Backend Reuse Strategy (Option A Fixed)
 
 ### Objectives
-- [ ] Avoid repeated JDT LS process startup cost on each editor open.
-- [ ] Reuse warm backend where safe.
-- [ ] Use Option A: persist one running JDT LS process per HTTP session workspace key.
+- [x] Avoid repeated JDT LS process startup cost on each editor open.
+- [x] Reuse warm backend where safe.
+- [x] Use Option A: persist one running JDT LS process per HTTP session workspace key.
 
 ### Code Touchpoints
 - `src/main/java/com/example/prog1learnapp/service/lsp/LspSessionManager.java`
-  - [ ] Add lifecycle management for reusable bridges/processes.
-  - [ ] Add mapping and reference lifecycle for WS <-> warm backend binding.
+  - [x] Add lifecycle management for reusable bridges/processes.
+  - [x] Add mapping and reference lifecycle for WS <-> warm backend binding.
 - `src/main/java/com/example/prog1learnapp/service/lsp/LspBridge.java`
-  - [ ] Support reuse semantics (attach/detach vs always spawn/kill).
+  - [x] Support reuse semantics (attach/detach vs always spawn/kill).
 - `src/main/java/com/example/prog1learnapp/service/lsp/JdtLsContainerService.java`
-  - [ ] Align container ref-count/TTL with Option A reuse strategy.
-  - [ ] Ensure cleanup remains safe for idle resources.
+  - [x] Align container ref-count/TTL with Option A reuse strategy.
+  - [x] Ensure cleanup remains safe for idle resources.
 - `src/main/java/com/example/prog1learnapp/controller/lsp/LspWebSocketHandler.java`
-  - [ ] Keep connection/cleanup logic consistent with reused backend sessions.
+  - [x] Keep connection/cleanup logic consistent with reused backend sessions.
 
 ### Test Cases
-- [ ] Reopen test: open exercise, close tab, reopen same exercise/session => second load faster than first.
-- [ ] Concurrent WS test: multiple WS sessions for same authenticated user/session do not corrupt bridge state.
-- [ ] Cleanup test: idle backend removed after TTL when no references.
-- [ ] Resource cap test: `max-sessions` still enforced.
+- [x] Reopen test: open exercise, close tab, reopen same exercise/session => second load faster than first.
+- [x] Concurrent WS test: multiple WS sessions for same authenticated user/session do not corrupt bridge state.
+- [x] Cleanup test: idle backend removed after TTL when no references.
+- [x] Resource cap test: `max-sessions` still enforced.
 
 ### Exit Criteria
-- [ ] Warm reopen path meets <= 2s target.
-- [ ] No leaked bridges/containers across repeated connects/disconnects.
+- [x] Warm reopen path meets <= 2s target.
+- [x] No leaked bridges/containers across repeated connects/disconnects.
 
 ---
 

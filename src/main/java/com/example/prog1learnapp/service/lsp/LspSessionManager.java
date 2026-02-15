@@ -3,6 +3,7 @@ package com.example.prog1learnapp.service.lsp;
 import com.example.prog1learnapp.config.lsp.LspProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
@@ -10,6 +11,9 @@ import org.springframework.web.socket.server.support.HttpSessionHandshakeInterce
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,18 +24,39 @@ public class LspSessionManager {
 
     private final JdtLsContainerService containerService;
     private final LspProperties lspProperties;
+    private final LspBridgeFactory lspBridgeFactory;
+
     private final Map<String, LspBridge> bridgesByWebSocketId = new ConcurrentHashMap<>();
     private final Map<String, String> workspaceKeyByWebSocketId = new ConcurrentHashMap<>();
+    private final Map<String, WorkspaceBridgeRecord> bridgeByWorkspaceKey = new ConcurrentHashMap<>();
 
-    public LspSessionManager(JdtLsContainerService containerService, LspProperties lspProperties) {
+    public LspSessionManager(JdtLsContainerService containerService,
+                             LspProperties lspProperties,
+                             LspBridgeFactory lspBridgeFactory) {
         this.containerService = containerService;
         this.lspProperties = lspProperties;
+        this.lspBridgeFactory = lspBridgeFactory;
     }
 
     public void open(WebSocketSession webSocketSession) throws IOException {
         long openStartedNs = System.nanoTime();
         String wsId = webSocketSession.getId();
         String workspaceKey = resolveWorkspaceKey(webSocketSession);
+
+        WorkspaceBridgeRecord existing = bridgeByWorkspaceKey.get(workspaceKey);
+        if (existing != null) {
+            existing.bridge.attachSession(webSocketSession);
+            existing.lastUsedEpochMs = Instant.now().toEpochMilli();
+            bridgesByWebSocketId.put(wsId, existing.bridge);
+            workspaceKeyByWebSocketId.put(wsId, workspaceKey);
+            log.debug("LSP websocket session attached wsId={} workspaceKey={} container={} attachedSessions={} totalOpenMs={}",
+                    wsId,
+                    workspaceKey,
+                    existing.containerName,
+                    existing.bridge.getAttachedSessionCount(),
+                    elapsedMs(openStartedNs));
+            return;
+        }
 
         long acquireStartedNs = System.nanoTime();
         Optional<String> containerName = containerService.acquireContainer(workspaceKey);
@@ -41,12 +66,11 @@ public class LspSessionManager {
             throw new IOException("No available LSP backend container");
         }
 
-        LspBridge bridge = new LspBridge(
+        LspBridge bridge = lspBridgeFactory.create(
                 containerName.get(),
                 sanitize(workspaceKey),
                 lspProperties.getConnectTimeoutMs(),
-                lspProperties.getStartupGraceMs(),
-                webSocketSession
+                lspProperties.getStartupGraceMs()
         );
 
         long bridgeStartNs = System.nanoTime();
@@ -65,8 +89,10 @@ public class LspSessionManager {
         }
         long bridgeStartMs = elapsedMs(bridgeStartNs);
 
-        bridgesByWebSocketId.put(webSocketSession.getId(), bridge);
-        workspaceKeyByWebSocketId.put(webSocketSession.getId(), workspaceKey);
+        bridge.attachSession(webSocketSession);
+        bridgeByWorkspaceKey.put(workspaceKey, new WorkspaceBridgeRecord(containerName.get(), bridge));
+        bridgesByWebSocketId.put(wsId, bridge);
+        workspaceKeyByWebSocketId.put(wsId, workspaceKey);
         log.debug("LSP websocket session opened wsId={} workspaceKey={} container={} acquireMs={} bridgeStartMs={} totalOpenMs={}",
                 wsId,
                 workspaceKey,
@@ -91,22 +117,53 @@ public class LspSessionManager {
 
     public void close(WebSocketSession webSocketSession) {
         String webSocketId = webSocketSession.getId();
-
-        LspBridge bridge = bridgesByWebSocketId.remove(webSocketId);
-        if (bridge != null) {
-            bridge.close();
-        }
-
         String workspaceKey = workspaceKeyByWebSocketId.remove(webSocketId);
-        if (workspaceKey != null) {
-            containerService.releaseContainer(workspaceKey);
+        LspBridge bridge = bridgesByWebSocketId.remove(webSocketId);
+
+        if (bridge != null) {
+            bridge.detachSession(webSocketId);
         }
 
-        log.debug("LSP websocket session {} closed", webSocketId);
+        if (workspaceKey != null) {
+            WorkspaceBridgeRecord record = bridgeByWorkspaceKey.get(workspaceKey);
+            if (record != null) {
+                record.lastUsedEpochMs = Instant.now().toEpochMilli();
+            }
+        }
+
+        log.debug("LSP websocket session {} detached", webSocketId);
     }
 
     public int getActiveBridgeCount() {
-        return bridgesByWebSocketId.size();
+        return bridgeByWorkspaceKey.size();
+    }
+
+    @Scheduled(fixedDelayString = "${app.lsp.cleanup-interval-ms:30000}")
+    public void cleanupIdleBridges() {
+        if (bridgeByWorkspaceKey.isEmpty()) {
+            return;
+        }
+
+        long now = Instant.now().toEpochMilli();
+        long ttlMs = lspProperties.getIdleTtlSeconds() * 1000;
+        List<String> toRemove = new ArrayList<>();
+
+        for (Map.Entry<String, WorkspaceBridgeRecord> entry : bridgeByWorkspaceKey.entrySet()) {
+            WorkspaceBridgeRecord record = entry.getValue();
+            if (record.bridge.getAttachedSessionCount() == 0 && now - record.lastUsedEpochMs > ttlMs) {
+                toRemove.add(entry.getKey());
+            }
+        }
+
+        for (String workspaceKey : toRemove) {
+            WorkspaceBridgeRecord record = bridgeByWorkspaceKey.remove(workspaceKey);
+            if (record == null) {
+                continue;
+            }
+            record.bridge.close();
+            containerService.forceRemove(workspaceKey);
+            log.debug("Removed idle LSP bridge workspaceKey={} container={}", workspaceKey, record.containerName);
+        }
     }
 
     private String resolveWorkspaceKey(WebSocketSession webSocketSession) {
@@ -127,5 +184,16 @@ public class LspSessionManager {
 
     private long elapsedMs(long startedAtNs) {
         return (System.nanoTime() - startedAtNs) / 1_000_000;
+    }
+
+    private static final class WorkspaceBridgeRecord {
+        private final String containerName;
+        private final LspBridge bridge;
+        private volatile long lastUsedEpochMs = Instant.now().toEpochMilli();
+
+        private WorkspaceBridgeRecord(String containerName, LspBridge bridge) {
+            this.containerName = containerName;
+            this.bridge = bridge;
+        }
     }
 }

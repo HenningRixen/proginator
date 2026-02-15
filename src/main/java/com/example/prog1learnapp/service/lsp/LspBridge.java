@@ -13,7 +13,9 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -25,26 +27,25 @@ public class LspBridge {
     private final String workspaceKey;
     private final long connectTimeoutMs;
     private final long startupGraceMs;
-    private final WebSocketSession webSocketSession;
+    private final Map<String, WebSocketSession> attachedSessions = new ConcurrentHashMap<>();
 
     private Process process;
     private OutputStream lspInput;
     private ExecutorService ioExecutor;
     private volatile long startedAtNs;
     private volatile boolean firstServerMessageLogged;
+    private volatile long lastAttachedEpochMs = System.currentTimeMillis();
     private final ConcurrentLinkedDeque<String> stderrTail = new ConcurrentLinkedDeque<>();
     private static final int STDERR_TAIL_LIMIT = 12;
 
     public LspBridge(String containerName,
                      String workspaceKey,
                      long connectTimeoutMs,
-                     long startupGraceMs,
-                     WebSocketSession webSocketSession) {
+                     long startupGraceMs) {
         this.containerName = containerName;
         this.workspaceKey = workspaceKey;
         this.connectTimeoutMs = connectTimeoutMs;
         this.startupGraceMs = startupGraceMs;
-        this.webSocketSession = webSocketSession;
     }
 
     public synchronized void start() throws IOException {
@@ -113,13 +114,14 @@ public class LspBridge {
         if (ioExecutor != null) {
             ioExecutor.shutdownNow();
         }
+        attachedSessions.clear();
     }
 
     private void forwardLspMessagesToClient() {
         int forwardedMessages = 0;
         try {
             InputStream stdout = process.getInputStream();
-            while (process.isAlive() && webSocketSession.isOpen()) {
+            while (process.isAlive()) {
                 String message = LspJsonRpcFraming.readMessage(stdout);
                 if (message == null) {
                     break;
@@ -129,19 +131,35 @@ public class LspBridge {
                     log.debug("LSP bridge first server message container={} workspaceKey={} firstMessageMs={}",
                             containerName, workspaceKey, elapsedMs(startedAtNs));
                 }
-                synchronized (webSocketSession) {
-                    webSocketSession.sendMessage(new TextMessage(message));
+                TextMessage textMessage = new TextMessage(message);
+                for (WebSocketSession session : attachedSessions.values()) {
+                    if (!session.isOpen()) {
+                        detachSession(session.getId());
+                        continue;
+                    }
+                    try {
+                        synchronized (session) {
+                            session.sendMessage(textMessage);
+                        }
+                        forwardedMessages++;
+                    } catch (IOException sendError) {
+                        log.debug("LSP bridge failed to send to wsId={} container={} error={}",
+                                session.getId(), containerName, sendError.getMessage());
+                        detachSession(session.getId());
+                    }
                 }
-                forwardedMessages++;
             }
         } catch (Exception e) {
             log.warn("LSP bridge output forwarding failed: {}", e.getMessage());
         } finally {
             log.debug("LSP bridge output loop finished container={} workspaceKey={} forwardedMessages={}",
                     containerName, workspaceKey, forwardedMessages);
-            if (webSocketSession.isOpen()) {
+            for (WebSocketSession session : attachedSessions.values()) {
+                if (!session.isOpen()) {
+                    continue;
+                }
                 try {
-                    webSocketSession.close(CloseStatus.SERVER_ERROR);
+                    session.close(CloseStatus.SERVER_ERROR);
                 } catch (IOException ignored) {
                 }
             }
@@ -183,6 +201,32 @@ public class LspBridge {
 
     private long elapsedMs(long startedNs) {
         return (System.nanoTime() - startedNs) / 1_000_000;
+    }
+
+    public void attachSession(WebSocketSession session) {
+        if (session == null) {
+            return;
+        }
+        attachedSessions.put(session.getId(), session);
+        lastAttachedEpochMs = System.currentTimeMillis();
+    }
+
+    public void detachSession(String webSocketId) {
+        if (webSocketId == null) {
+            return;
+        }
+        attachedSessions.remove(webSocketId);
+        if (attachedSessions.isEmpty()) {
+            lastAttachedEpochMs = System.currentTimeMillis();
+        }
+    }
+
+    public int getAttachedSessionCount() {
+        return attachedSessions.size();
+    }
+
+    public long getLastAttachedEpochMs() {
+        return lastAttachedEpochMs;
     }
 
     private void appendStderrTail(String line) {

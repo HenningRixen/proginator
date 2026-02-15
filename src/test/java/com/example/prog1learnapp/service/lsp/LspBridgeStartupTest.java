@@ -1,7 +1,6 @@
 package com.example.prog1learnapp.service.lsp;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.web.socket.WebSocketSession;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -9,14 +8,12 @@ import java.io.OutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
 
 class LspBridgeStartupTest {
 
     @Test
     void waitForEarlyFailure_processAliveAfterGrace_returnsQuickly() throws Exception {
-        WebSocketSession ws = mock(WebSocketSession.class);
-        LspBridge bridge = new LspBridge("dummy-container", "workspace", 15000, 200, ws);
+        LspBridge bridge = new LspBridge("dummy-container", "workspace", 15000, 200);
         Process aliveProcess = new FakeProcess(true);
 
         long start = System.currentTimeMillis();
@@ -28,8 +25,7 @@ class LspBridgeStartupTest {
 
     @Test
     void waitForEarlyFailure_processExitsImmediately_failsFast() {
-        WebSocketSession ws = mock(WebSocketSession.class);
-        LspBridge bridge = new LspBridge("dummy-container", "workspace", 15000, 200, ws);
+        LspBridge bridge = new LspBridge("dummy-container", "workspace", 15000, 200);
         Process deadProcess = new FakeProcess(false);
 
         IOException ex = assertThrows(IOException.class, () -> bridge.waitForEarlyFailure(deadProcess, 300));
