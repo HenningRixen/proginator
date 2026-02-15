@@ -55,7 +55,10 @@ public class JdtLsContainerService {
     }
 
     public synchronized Optional<String> acquireContainer(String sessionKey) {
+        long acquireStartedNs = System.nanoTime();
         if (!lspProperties.isEnabled() || !dockerAvailable) {
+            log.debug("LSP acquire skipped sessionKey={} enabled={} dockerAvailable={} durationMs={}",
+                    sessionKey, lspProperties.isEnabled(), dockerAvailable, elapsedMs(acquireStartedNs));
             return Optional.empty();
         }
 
@@ -63,6 +66,8 @@ public class JdtLsContainerService {
         if (existing != null) {
             existing.refCount++;
             existing.lastUsedEpochMs = Instant.now().toEpochMilli();
+            log.debug("LSP acquire reused sessionKey={} container={} refCount={} durationMs={}",
+                    sessionKey, existing.containerName, existing.refCount, elapsedMs(acquireStartedNs));
             return Optional.of(existing.containerName);
         }
 
@@ -73,12 +78,15 @@ public class JdtLsContainerService {
 
         String containerName = CONTAINER_PREFIX + Integer.toHexString(sessionKey.hashCode());
         if (!createAndStartContainer(containerName)) {
+            log.warn("LSP acquire failed sessionKey={} container={} durationMs={}", sessionKey, containerName, elapsedMs(acquireStartedNs));
             return Optional.empty();
         }
 
         ContainerSession created = new ContainerSession(containerName);
         created.refCount = 1;
         sessions.put(sessionKey, created);
+        log.debug("LSP acquire created sessionKey={} container={} activeSessions={} durationMs={}",
+                sessionKey, containerName, sessions.size(), elapsedMs(acquireStartedNs));
         return Optional.of(containerName);
     }
 
@@ -123,7 +131,9 @@ public class JdtLsContainerService {
 
     @Scheduled(fixedDelayString = "${app.lsp.cleanup-interval-ms:30000}")
     public synchronized void cleanupIdleContainers() {
+        long cleanupStartedNs = System.nanoTime();
         if (sessions.isEmpty()) {
+            log.debug("LSP cleanup skipped activeSessions=0 durationMs={}", elapsedMs(cleanupStartedNs));
             return;
         }
 
@@ -145,10 +155,17 @@ public class JdtLsContainerService {
                 removeContainer(removed.containerName);
             }
         }
+
+        log.debug("LSP cleanup evaluated activeSessionsBefore={} removed={} activeSessionsAfter={} durationMs={}",
+                sessions.size() + toRemove.size(),
+                toRemove.size(),
+                sessions.size(),
+                elapsedMs(cleanupStartedNs));
     }
 
     private boolean createAndStartContainer(String containerName) {
-        runCommand(List.of("docker", "rm", "-f", containerName));
+        long createStartedNs = System.nanoTime();
+        CommandResult rmResult = runCommand(List.of("docker", "rm", "-f", containerName));
 
         List<String> createCommand = List.of(
                 "docker", "create",
@@ -169,17 +186,25 @@ public class JdtLsContainerService {
 
         CommandResult createResult = runCommand(createCommand);
         if (createResult.exitCode != 0) {
-            log.error("Failed to create LSP container {}: {}", containerName, createResult.output);
+            log.error("Failed to create LSP container {} createMs={} totalMs={} output={}",
+                    containerName, createResult.durationMs, elapsedMs(createStartedNs), createResult.output);
             return false;
         }
 
         CommandResult startResult = runCommand(List.of("docker", "start", containerName));
         if (startResult.exitCode != 0) {
-            log.error("Failed to start LSP container {}: {}", containerName, startResult.output);
+            log.error("Failed to start LSP container {} startMs={} totalMs={} output={}",
+                    containerName, startResult.durationMs, elapsedMs(createStartedNs), startResult.output);
             removeContainer(containerName);
             return false;
         }
 
+        log.debug("LSP container ready container={} rmMs={} createMs={} startMs={} totalMs={}",
+                containerName,
+                rmResult.durationMs,
+                createResult.durationMs,
+                startResult.durationMs,
+                elapsedMs(createStartedNs));
         return true;
     }
 
@@ -188,6 +213,7 @@ public class JdtLsContainerService {
     }
 
     private CommandResult runCommand(List<String> command) {
+        long commandStartedNs = System.nanoTime();
         try {
             Process process = new ProcessBuilder(command).start();
             String output;
@@ -201,13 +227,17 @@ public class JdtLsContainerService {
             }
 
             int exitCode = process.waitFor();
-            return new CommandResult(exitCode, output);
+            return new CommandResult(exitCode, output, elapsedMs(commandStartedNs));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return new CommandResult(1, e.getMessage());
+            return new CommandResult(1, e.getMessage(), elapsedMs(commandStartedNs));
         } catch (IOException e) {
-            return new CommandResult(1, e.getMessage());
+            return new CommandResult(1, e.getMessage(), elapsedMs(commandStartedNs));
         }
+    }
+
+    private long elapsedMs(long startedAtNs) {
+        return (System.nanoTime() - startedAtNs) / 1_000_000;
     }
 
     private static final class ContainerSession {
@@ -223,10 +253,12 @@ public class JdtLsContainerService {
     private static final class CommandResult {
         private final int exitCode;
         private final String output;
+        private final long durationMs;
 
-        private CommandResult(int exitCode, String output) {
+        private CommandResult(int exitCode, String output, long durationMs) {
             this.exitCode = exitCode;
             this.output = output;
+            this.durationMs = durationMs;
         }
     }
 }

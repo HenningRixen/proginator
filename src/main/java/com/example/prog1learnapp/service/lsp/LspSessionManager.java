@@ -29,9 +29,15 @@ public class LspSessionManager {
     }
 
     public void open(WebSocketSession webSocketSession) throws IOException {
+        long openStartedNs = System.nanoTime();
+        String wsId = webSocketSession.getId();
         String workspaceKey = resolveWorkspaceKey(webSocketSession);
+
+        long acquireStartedNs = System.nanoTime();
         Optional<String> containerName = containerService.acquireContainer(workspaceKey);
+        long acquireDurationMs = elapsedMs(acquireStartedNs);
         if (containerName.isEmpty()) {
+            log.warn("LSP open failed wsId={} workspaceKey={} stage=acquireContainer durationMs={}", wsId, workspaceKey, acquireDurationMs);
             throw new IOException("No available LSP backend container");
         }
 
@@ -42,16 +48,31 @@ public class LspSessionManager {
                 webSocketSession
         );
 
+        long bridgeStartNs = System.nanoTime();
         try {
             bridge.start();
         } catch (IOException e) {
             containerService.forceRemove(workspaceKey);
+            log.warn("LSP open failed wsId={} workspaceKey={} stage=bridgeStart acquireMs={} bridgeStartMs={} totalMs={} error={}",
+                    wsId,
+                    workspaceKey,
+                    acquireDurationMs,
+                    elapsedMs(bridgeStartNs),
+                    elapsedMs(openStartedNs),
+                    e.getMessage());
             throw e;
         }
+        long bridgeStartMs = elapsedMs(bridgeStartNs);
 
         bridgesByWebSocketId.put(webSocketSession.getId(), bridge);
         workspaceKeyByWebSocketId.put(webSocketSession.getId(), workspaceKey);
-        log.debug("LSP websocket session {} opened for workspace {}", webSocketSession.getId(), workspaceKey);
+        log.debug("LSP websocket session opened wsId={} workspaceKey={} container={} acquireMs={} bridgeStartMs={} totalOpenMs={}",
+                wsId,
+                workspaceKey,
+                containerName.get(),
+                acquireDurationMs,
+                bridgeStartMs,
+                elapsedMs(openStartedNs));
     }
 
     public void forwardClientMessage(WebSocketSession webSocketSession, String payload) throws IOException {
@@ -101,5 +122,9 @@ public class LspSessionManager {
 
     private String sanitize(String value) {
         return value.replaceAll("[^a-zA-Z0-9-_]", "_");
+    }
+
+    private long elapsedMs(long startedAtNs) {
+        return (System.nanoTime() - startedAtNs) / 1_000_000;
     }
 }

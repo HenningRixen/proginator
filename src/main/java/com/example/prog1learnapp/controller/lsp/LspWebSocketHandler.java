@@ -26,20 +26,26 @@ public class LspWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+        long startedAtNs = System.nanoTime();
+        String wsId = session.getId();
+
         if (!containerService.isEnabled()) {
+            log.debug("LSP websocket connect rejected wsId={} reason=disabled durationMs={}", wsId, elapsedMs(startedAtNs));
             session.close(CloseStatus.POLICY_VIOLATION.withReason("LSP disabled"));
             return;
         }
 
         if (session.getPrincipal() == null) {
+            log.debug("LSP websocket connect rejected wsId={} reason=unauthenticated durationMs={}", wsId, elapsedMs(startedAtNs));
             session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Authentication required"));
             return;
         }
 
         try {
             sessionManager.open(session);
+            log.debug("LSP websocket connect established wsId={} durationMs={}", wsId, elapsedMs(startedAtNs));
         } catch (IOException e) {
-            log.warn("Failed to establish LSP bridge: {}", e.getMessage());
+            log.warn("Failed to establish LSP bridge wsId={} durationMs={} error={}", wsId, elapsedMs(startedAtNs), e.getMessage());
             session.close(CloseStatus.SERVER_ERROR.withReason("LSP backend unavailable"));
         }
     }
@@ -69,5 +75,9 @@ public class LspWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
         sessionManager.close(session);
+    }
+
+    private long elapsedMs(long startedAtNs) {
+        return (System.nanoTime() - startedAtNs) / 1_000_000;
     }
 }

@@ -6,6 +6,36 @@
         if (!monaco || !editor) {
             return null;
         }
+        const perf = window.performance;
+        function perfNow() {
+            return perf && typeof perf.now === 'function' ? perf.now() : Date.now();
+        }
+        function perfMark(name) {
+            if (perf && typeof perf.mark === 'function') {
+                perf.mark(name);
+            }
+        }
+        function perfMeasure(name, startMark, endMark) {
+            if (perf && typeof perf.measure === 'function') {
+                try {
+                    perf.measure(name, startMark, endMark);
+                } catch (ignored) {
+                }
+            }
+        }
+        function logPerf(eventName, details) {
+            if (!Array.isArray(window.__lspPerfEvents)) {
+                window.__lspPerfEvents = [];
+            }
+            window.__lspPerfEvents.push({
+                event: eventName,
+                ts: Date.now(),
+                details: details || {}
+            });
+            if (window.console && typeof window.console.debug === 'function') {
+                window.console.debug('[LSP Perf]', eventName, details || {});
+            }
+        }
 
         const lspSessionId = String(Date.now()) + '-' + Math.floor(Math.random() * 1000000);
         const normalizedWorkspaceUri = workspaceUri && workspaceUri.startsWith('file://')
@@ -27,7 +57,16 @@
             model: model,
             version: 1,
             changeTimer: null,
-            providerDisposables: []
+            providerDisposables: [],
+            metrics: {
+                wsConnectStartMs: 0,
+                wsOpenMs: 0,
+                initializeStartMs: 0,
+                initializeEndMs: 0,
+                didOpenSentMs: 0,
+                firstDiagnosticsMs: 0,
+                firstCompletionLogged: false
+            }
         };
 
         function send(payload) {
@@ -96,9 +135,21 @@
         function connect() {
             const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
             const wsUrl = protocol + '://' + window.location.host + '/api/lsp/ws';
+            state.metrics.wsConnectStartMs = perfNow();
+            perfMark('lsp-' + lspSessionId + '-ws-connect-start');
             state.socket = new WebSocket(wsUrl);
 
             state.socket.addEventListener('open', function () {
+                state.metrics.wsOpenMs = perfNow();
+                perfMark('lsp-' + lspSessionId + '-ws-open');
+                perfMeasure('lsp-' + lspSessionId + '-ws-open-latency', 'lsp-' + lspSessionId + '-ws-connect-start', 'lsp-' + lspSessionId + '-ws-open');
+                logPerf('ws-open', {
+                    sessionId: lspSessionId,
+                    latencyMs: Math.round(state.metrics.wsOpenMs - state.metrics.wsConnectStartMs)
+                });
+
+                state.metrics.initializeStartMs = perfNow();
+                perfMark('lsp-' + lspSessionId + '-initialize-start');
                 sendRequest('initialize', {
                     processId: null,
                     rootUri: normalizedWorkspaceUri,
@@ -123,7 +174,21 @@
                         version: '1.0.0'
                     }
                 }).then(function () {
+                    state.metrics.initializeEndMs = perfNow();
+                    perfMark('lsp-' + lspSessionId + '-initialize-end');
+                    perfMeasure('lsp-' + lspSessionId + '-initialize-latency', 'lsp-' + lspSessionId + '-initialize-start', 'lsp-' + lspSessionId + '-initialize-end');
+                    logPerf('initialize-done', {
+                        sessionId: lspSessionId,
+                        latencyMs: Math.round(state.metrics.initializeEndMs - state.metrics.initializeStartMs)
+                    });
+
                     sendNotification('initialized', {});
+                    state.metrics.didOpenSentMs = perfNow();
+                    perfMark('lsp-' + lspSessionId + '-did-open-sent');
+                    logPerf('did-open-sent', {
+                        sessionId: lspSessionId,
+                        sinceWsConnectMs: Math.round(state.metrics.didOpenSentMs - state.metrics.wsConnectStartMs)
+                    });
                     sendNotification('textDocument/didOpen', {
                         textDocument: {
                             uri: state.model.uri.toString(),
@@ -174,6 +239,20 @@
                 return;
             }
 
+            if (state.metrics.firstDiagnosticsMs === 0) {
+                state.metrics.firstDiagnosticsMs = perfNow();
+                perfMark('lsp-' + lspSessionId + '-first-diagnostics');
+                perfMeasure(
+                    'lsp-' + lspSessionId + '-first-diagnostics-latency',
+                    'lsp-' + lspSessionId + '-ws-connect-start',
+                    'lsp-' + lspSessionId + '-first-diagnostics'
+                );
+                logPerf('first-diagnostics', {
+                    sessionId: lspSessionId,
+                    sinceWsConnectMs: Math.round(state.metrics.firstDiagnosticsMs - state.metrics.wsConnectStartMs)
+                });
+            }
+
             const markers = params.diagnostics.map(function (diag) {
                 const start = diag.range && diag.range.start ? diag.range.start : { line: 0, character: 0 };
                 const end = diag.range && diag.range.end ? diag.range.end : start;
@@ -211,6 +290,7 @@
                         return { suggestions: [] };
                     }
                     ensureLatestDocumentSent();
+                    const completionStartMs = perfNow();
 
                     return sendRequest('textDocument/completion', {
                         textDocument: { uri: currentModel.uri.toString() },
@@ -224,6 +304,20 @@
                         }
                     }).then(function (result) {
                         const items = normalizeCompletionItems(result);
+                        if (!state.metrics.firstCompletionLogged) {
+                            state.metrics.firstCompletionLogged = true;
+                            perfMark('lsp-' + lspSessionId + '-first-completion-end');
+                            perfMeasure(
+                                'lsp-' + lspSessionId + '-first-completion-latency',
+                                'lsp-' + lspSessionId + '-ws-connect-start',
+                                'lsp-' + lspSessionId + '-first-completion-end'
+                            );
+                            logPerf('first-completion-roundtrip', {
+                                sessionId: lspSessionId,
+                                roundtripMs: Math.round(perfNow() - completionStartMs),
+                                sinceWsConnectMs: Math.round(perfNow() - state.metrics.wsConnectStartMs)
+                            });
+                        }
                         return {
                             suggestions: items.map(function (item) {
                                 return {

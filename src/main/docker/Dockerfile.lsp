@@ -1,6 +1,8 @@
 FROM eclipse-temurin:21-jre
 
 ARG JDTLS_VERSION=1.55.0
+ENV JAVA_HOME=/opt/java/openjdk
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 USER root
 
