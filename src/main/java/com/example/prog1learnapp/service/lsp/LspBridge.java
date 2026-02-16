@@ -92,6 +92,10 @@ public class LspBridge {
         LspJsonRpcFraming.writeMessage(lspInput, payload);
     }
 
+    public synchronized boolean isRunning() {
+        return process != null && process.isAlive();
+    }
+
     public synchronized void close() {
         try {
             if (lspInput != null) {

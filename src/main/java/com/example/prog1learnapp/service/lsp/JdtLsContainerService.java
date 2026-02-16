@@ -27,6 +27,13 @@ public class JdtLsContainerService {
     private final LspProperties lspProperties;
     private final Map<String, ContainerSession> sessions = new HashMap<>();
     private boolean dockerAvailable;
+    private long acquireAttempts;
+    private long acquireReuseCount;
+    private long acquireCreateCount;
+    private long acquireFailureCount;
+    private long saturationRejectCount;
+    private long lastSaturationEpochMs;
+    private String lastSaturationSessionKey;
 
     public JdtLsContainerService(LspProperties lspProperties) {
         this.lspProperties = lspProperties;
@@ -56,7 +63,9 @@ public class JdtLsContainerService {
 
     public synchronized Optional<String> acquireContainer(String sessionKey) {
         long acquireStartedNs = System.nanoTime();
+        acquireAttempts++;
         if (!lspProperties.isEnabled() || !dockerAvailable) {
+            acquireFailureCount++;
             log.debug("LSP acquire skipped sessionKey={} enabled={} dockerAvailable={} durationMs={}",
                     sessionKey, lspProperties.isEnabled(), dockerAvailable, elapsedMs(acquireStartedNs));
             return Optional.empty();
@@ -66,18 +75,25 @@ public class JdtLsContainerService {
         if (existing != null) {
             existing.refCount++;
             existing.lastUsedEpochMs = Instant.now().toEpochMilli();
+            acquireReuseCount++;
             log.debug("LSP acquire reused sessionKey={} container={} refCount={} durationMs={}",
                     sessionKey, existing.containerName, existing.refCount, elapsedMs(acquireStartedNs));
             return Optional.of(existing.containerName);
         }
 
         if (sessions.size() >= lspProperties.getMaxSessions()) {
-            log.warn("Reached maximum LSP session limit: {}", lspProperties.getMaxSessions());
+            saturationRejectCount++;
+            acquireFailureCount++;
+            lastSaturationEpochMs = Instant.now().toEpochMilli();
+            lastSaturationSessionKey = sessionKey;
+            log.warn("LSP acquire rejected stage=saturation sessionKey={} activeSessions={} maxSessions={} saturationRejectCount={} acquireAttempts={}",
+                    sessionKey, sessions.size(), lspProperties.getMaxSessions(), saturationRejectCount, acquireAttempts);
             return Optional.empty();
         }
 
         String containerName = CONTAINER_PREFIX + Integer.toHexString(sessionKey.hashCode());
         if (!createAndStartContainer(containerName)) {
+            acquireFailureCount++;
             log.warn("LSP acquire failed sessionKey={} container={} durationMs={}", sessionKey, containerName, elapsedMs(acquireStartedNs));
             return Optional.empty();
         }
@@ -85,6 +101,7 @@ public class JdtLsContainerService {
         ContainerSession created = new ContainerSession(containerName);
         created.refCount = 1;
         sessions.put(sessionKey, created);
+        acquireCreateCount++;
         log.debug("LSP acquire created sessionKey={} container={} activeSessions={} durationMs={}",
                 sessionKey, containerName, sessions.size(), elapsedMs(acquireStartedNs));
         return Optional.of(containerName);
@@ -127,6 +144,20 @@ public class JdtLsContainerService {
         }
         CommandResult result = runCommand(List.of("docker", "image", "inspect", lspProperties.getImage()));
         return result.exitCode == 0;
+    }
+
+    public synchronized SaturationSnapshot getSaturationSnapshot() {
+        return new SaturationSnapshot(
+                acquireAttempts,
+                acquireReuseCount,
+                acquireCreateCount,
+                acquireFailureCount,
+                saturationRejectCount,
+                sessions.size(),
+                lspProperties.getMaxSessions(),
+                lastSaturationEpochMs,
+                lastSaturationSessionKey
+        );
     }
 
     @Scheduled(fixedDelayString = "${app.lsp.cleanup-interval-ms:30000}")
@@ -247,6 +278,74 @@ public class JdtLsContainerService {
 
         private ContainerSession(String containerName) {
             this.containerName = containerName;
+        }
+    }
+
+    public static final class SaturationSnapshot {
+        private final long acquireAttempts;
+        private final long acquireReuseCount;
+        private final long acquireCreateCount;
+        private final long acquireFailureCount;
+        private final long saturationRejectCount;
+        private final int activeSessions;
+        private final int maxSessions;
+        private final long lastSaturationEpochMs;
+        private final String lastSaturationSessionKey;
+
+        public SaturationSnapshot(long acquireAttempts,
+                                  long acquireReuseCount,
+                                  long acquireCreateCount,
+                                  long acquireFailureCount,
+                                  long saturationRejectCount,
+                                  int activeSessions,
+                                  int maxSessions,
+                                  long lastSaturationEpochMs,
+                                  String lastSaturationSessionKey) {
+            this.acquireAttempts = acquireAttempts;
+            this.acquireReuseCount = acquireReuseCount;
+            this.acquireCreateCount = acquireCreateCount;
+            this.acquireFailureCount = acquireFailureCount;
+            this.saturationRejectCount = saturationRejectCount;
+            this.activeSessions = activeSessions;
+            this.maxSessions = maxSessions;
+            this.lastSaturationEpochMs = lastSaturationEpochMs;
+            this.lastSaturationSessionKey = lastSaturationSessionKey;
+        }
+
+        public long getAcquireAttempts() {
+            return acquireAttempts;
+        }
+
+        public long getAcquireReuseCount() {
+            return acquireReuseCount;
+        }
+
+        public long getAcquireCreateCount() {
+            return acquireCreateCount;
+        }
+
+        public long getAcquireFailureCount() {
+            return acquireFailureCount;
+        }
+
+        public long getSaturationRejectCount() {
+            return saturationRejectCount;
+        }
+
+        public int getActiveSessions() {
+            return activeSessions;
+        }
+
+        public int getMaxSessions() {
+            return maxSessions;
+        }
+
+        public long getLastSaturationEpochMs() {
+            return lastSaturationEpochMs;
+        }
+
+        public String getLastSaturationSessionKey() {
+            return lastSaturationSessionKey;
         }
     }
 

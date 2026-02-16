@@ -22,12 +22,24 @@ public class LspHealthController {
 
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> health() {
+        JdtLsContainerService.SaturationSnapshot saturation = containerService.getSaturationSnapshot();
         Map<String, Object> payload = Map.of(
                 "enabled", containerService.isEnabled(),
                 "dockerAvailable", containerService.isDockerAvailable(),
                 "imageAvailable", containerService.isImageAvailable(),
                 "activeContainers", containerService.getActiveSessionCount(),
-                "activeBridges", sessionManager.getActiveBridgeCount()
+                "activeBridges", sessionManager.getActiveBridgeCount(),
+                "saturation", Map.of(
+                        "acquireAttempts", saturation.getAcquireAttempts(),
+                        "acquireReuseCount", saturation.getAcquireReuseCount(),
+                        "acquireCreateCount", saturation.getAcquireCreateCount(),
+                        "acquireFailureCount", saturation.getAcquireFailureCount(),
+                        "saturationRejectCount", saturation.getSaturationRejectCount(),
+                        "activeSessions", saturation.getActiveSessions(),
+                        "maxSessions", saturation.getMaxSessions(),
+                        "lastSaturationEpochMs", saturation.getLastSaturationEpochMs(),
+                        "lastSaturationSessionKey", saturation.getLastSaturationSessionKey() == null ? "" : saturation.getLastSaturationSessionKey()
+                )
         );
 
         boolean healthy = containerService.isEnabled() && containerService.isDockerAvailable() && containerService.isImageAvailable();

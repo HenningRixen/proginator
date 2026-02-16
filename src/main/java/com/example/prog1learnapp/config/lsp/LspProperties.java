@@ -13,6 +13,8 @@ public class LspProperties {
     private String image = "proginator-jdtls";
     private long connectTimeoutMs = 15000;
     private long startupGraceMs = 750;
+    private boolean prewarmOnLogin = false;
+    private long prewarmTimeoutMs = 8000;
     private long idleTtlSeconds = 300;
     private int maxSessions = 50;
     private int memoryMb = 512;
@@ -51,6 +53,22 @@ public class LspProperties {
 
     public void setStartupGraceMs(long startupGraceMs) {
         this.startupGraceMs = startupGraceMs;
+    }
+
+    public boolean isPrewarmOnLogin() {
+        return prewarmOnLogin;
+    }
+
+    public void setPrewarmOnLogin(boolean prewarmOnLogin) {
+        this.prewarmOnLogin = prewarmOnLogin;
+    }
+
+    public long getPrewarmTimeoutMs() {
+        return prewarmTimeoutMs;
+    }
+
+    public void setPrewarmTimeoutMs(long prewarmTimeoutMs) {
+        this.prewarmTimeoutMs = prewarmTimeoutMs;
     }
 
     public long getIdleTtlSeconds() {

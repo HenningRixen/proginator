@@ -41,12 +41,14 @@ app:
     image: proginator-jdtls
     connect-timeout-ms: 15000
     startup-grace-ms: 750
-    idle-ttl-seconds: 300
-    max-sessions: 50
+    prewarm-on-login: true
+    prewarm-timeout-ms: 8000
+    idle-ttl-seconds: 180
+    max-sessions: 20
     memory-mb: 512
-    cpus: 1.0
+    cpus: 1.5
     max-message-bytes: 1000000
-    cleanup-interval-ms: 30000
+    cleanup-interval-ms: 15000
     allowed-origins:
       - "http://localhost:*"
       - "https://localhost:*"

@@ -35,6 +35,9 @@ class LspHealthControllerIntegrationTest {
         when(containerService.isDockerAvailable()).thenReturn(true);
         when(containerService.isImageAvailable()).thenReturn(true);
         when(containerService.getActiveSessionCount()).thenReturn(2);
+        when(containerService.getSaturationSnapshot()).thenReturn(new JdtLsContainerService.SaturationSnapshot(
+                10, 6, 3, 1, 0, 2, 20, 0, null
+        ));
         when(sessionManager.getActiveBridgeCount()).thenReturn(2);
 
         mockMvc.perform(get("/api/lsp/health"))
@@ -43,7 +46,9 @@ class LspHealthControllerIntegrationTest {
                 .andExpect(jsonPath("$.dockerAvailable").value(true))
                 .andExpect(jsonPath("$.imageAvailable").value(true))
                 .andExpect(jsonPath("$.activeContainers").value(2))
-                .andExpect(jsonPath("$.activeBridges").value(2));
+                .andExpect(jsonPath("$.activeBridges").value(2))
+                .andExpect(jsonPath("$.saturation.maxSessions").value(20))
+                .andExpect(jsonPath("$.saturation.saturationRejectCount").value(0));
     }
 
     @Test
@@ -53,6 +58,9 @@ class LspHealthControllerIntegrationTest {
         when(containerService.isDockerAvailable()).thenReturn(false);
         when(containerService.isImageAvailable()).thenReturn(false);
         when(containerService.getActiveSessionCount()).thenReturn(0);
+        when(containerService.getSaturationSnapshot()).thenReturn(new JdtLsContainerService.SaturationSnapshot(
+                2, 0, 0, 2, 1, 0, 1, 1739980800000L, "alice:http-2"
+        ));
         when(sessionManager.getActiveBridgeCount()).thenReturn(0);
 
         mockMvc.perform(get("/api/lsp/health"))
@@ -61,6 +69,8 @@ class LspHealthControllerIntegrationTest {
                 .andExpect(jsonPath("$.dockerAvailable").value(false))
                 .andExpect(jsonPath("$.imageAvailable").value(false))
                 .andExpect(jsonPath("$.activeContainers").value(0))
-                .andExpect(jsonPath("$.activeBridges").value(0));
+                .andExpect(jsonPath("$.activeBridges").value(0))
+                .andExpect(jsonPath("$.saturation.saturationRejectCount").value(1))
+                .andExpect(jsonPath("$.saturation.lastSaturationSessionKey").value("alice:http-2"));
     }
 }

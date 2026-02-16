@@ -11,6 +11,11 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+    private final LspLoginSuccessHandler lspLoginSuccessHandler;
+
+    public SecurityConfig(LspLoginSuccessHandler lspLoginSuccessHandler) {
+        this.lspLoginSuccessHandler = lspLoginSuccessHandler;
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -23,7 +28,7 @@ public class SecurityConfig {
                 .formLogin(form -> form
                         .loginPage("/login")
                         .loginProcessingUrl("/login")
-                        .defaultSuccessUrl("/dashboard", true)  // true = immer zum Dashboard, nicht zur ursprünglichen URL
+                        .successHandler(lspLoginSuccessHandler)
                         .failureUrl("/login?error=true")
                         .permitAll()
                 )

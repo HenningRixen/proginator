@@ -56,7 +56,12 @@ public class LspWebSocketHandler extends TextWebSocketHandler {
             sessionManager.forwardClientMessage(session, message.getPayload());
         } catch (IOException e) {
             log.warn("LSP message forwarding failed: {}", e.getMessage());
-            session.close(CloseStatus.BAD_DATA.withReason("Invalid or oversized LSP payload"));
+            String error = e.getMessage();
+            if (error != null && error.contains("payload exceeds max size")) {
+                session.close(CloseStatus.BAD_DATA.withReason("Invalid or oversized LSP payload"));
+            } else {
+                session.close(CloseStatus.SERVER_ERROR.withReason("LSP backend unavailable"));
+            }
         }
     }
 

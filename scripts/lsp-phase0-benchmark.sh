@@ -7,6 +7,7 @@ BASE_URL="http://127.0.0.1:${PORT}"
 CHROMEDRIVER_PORT="${CHROMEDRIVER_PORT:-9515}"
 OUT_DIR="${OUT_DIR:-target/lsp-phase0}"
 MAVEN_REPO_LOCAL="${MAVEN_REPO_LOCAL:-.m2-local}"
+APP_JVM_ARGS_EXTRA="${APP_JVM_ARGS_EXTRA:-}"
 APP_LOG="${OUT_DIR}/app.log"
 CHROMEDRIVER_LOG="${OUT_DIR}/chromedriver.log"
 RAW_METRICS_JSONL="${OUT_DIR}/metrics.jsonl"
@@ -131,10 +132,14 @@ wait_for_ready_state_complete() {
 
 start_app() {
   mkdir -p "${MAVEN_REPO_LOCAL}"
+  local jvm_args="-Dserver.port=${PORT}"
+  if [[ -n "${APP_JVM_ARGS_EXTRA}" ]]; then
+    jvm_args="${jvm_args} ${APP_JVM_ARGS_EXTRA}"
+  fi
   ./mvnw -q spring-boot:run \
     -Dmaven.repo.local="${MAVEN_REPO_LOCAL}" \
     -Dspring-boot.run.profiles=dev \
-    -Dspring-boot.run.jvmArguments="-Dserver.port=${PORT}" \
+    -Dspring-boot.run.jvmArguments="${jvm_args}" \
     >"${APP_LOG}" 2>&1 &
   APP_PID=$!
   wait_for_http "${BASE_URL}/login"

@@ -209,42 +209,81 @@ Speed up LSP readiness for interactive exercises (diagnostics + completion + hov
 ## Phase 5 - Capacity and Config Tuning
 
 ### Objectives
-- [ ] Tune runtime limits based on measured usage.
+- [x] Tune runtime limits based on measured usage.
 
 ### Code Touchpoints
 - `src/main/resources/application.yml`
-  - [ ] Tune `app.lsp.max-sessions`.
-  - [ ] Tune `app.lsp.memory-mb`.
-  - [ ] Tune `app.lsp.cpus`.
-  - [ ] Tune `app.lsp.idle-ttl-seconds`.
-  - [ ] Tune `app.lsp.cleanup-interval-ms`.
+  - [x] Tune `app.lsp.max-sessions`.
+  - [x] Tune `app.lsp.memory-mb`.
+  - [x] Tune `app.lsp.cpus`.
+  - [x] Tune `app.lsp.idle-ttl-seconds`.
+  - [x] Tune `app.lsp.cleanup-interval-ms`.
 - `src/main/java/com/example/prog1learnapp/service/lsp/JdtLsContainerService.java`
-  - [ ] Add clearer saturation logs/metrics for session-limit hits.
+  - [x] Add clearer saturation logs/metrics for session-limit hits.
 
 ### Test Cases
-- [ ] Load test (dev/staging): simulate N concurrent interactive users.
-- [ ] Verify container count, WS stability, median/p95 latencies under load.
-- [ ] Saturation behavior: when `max-sessions` reached, failure is explicit and safe.
-- [ ] Cleanup behavior: no premature cleanup of active resources.
+- [x] Load test (dev/staging): simulate N concurrent interactive users.
+- [x] Verify container count, WS stability, median/p95 latencies under load.
+- [x] Saturation behavior: when `max-sessions` reached, failure is explicit and safe.
+- [x] Cleanup behavior: no premature cleanup of active resources.
 
 ### Exit Criteria
-- [ ] Stable performance under expected concurrent load.
-- [ ] Predictable behavior at resource limits.
+- [x] Stable performance under expected concurrent load.
+- [x] Predictable behavior at resource limits.
 
 ---
 
 ## Security and Regression Checklist (Run Each Phase)
-- [ ] Auth still required for `/api/lsp/ws` and `/api/lsp/health`.
-- [ ] Container hardening flag `--network=none` remains unchanged.
-- [ ] Container hardening flag `--read-only` remains unchanged.
-- [ ] Container hardening flag `--cap-drop=ALL` remains unchanged.
-- [ ] Container hardening flag `--security-opt=no-new-privileges` remains unchanged.
-- [ ] Container runs as non-root `runner`.
-- [ ] No changes that expose execution/LSP endpoints publicly.
-- [ ] No regressions in interactive editor fallback behavior when LSP unavailable.
+- [x] Auth still required for `/api/lsp/ws` and `/api/lsp/health`.
+- [x] Container hardening flag `--network=none` remains unchanged.
+- [x] Container hardening flag `--read-only` remains unchanged.
+- [x] Container hardening flag `--cap-drop=ALL` remains unchanged.
+- [x] Container hardening flag `--security-opt=no-new-privileges` remains unchanged.
+- [x] Container runs as non-root `runner`.
+- [x] No changes that expose execution/LSP endpoints publicly.
+- [x] No regressions in interactive editor fallback behavior when LSP unavailable.
 
 ## Suggested Test File Additions
-- [ ] `src/test/java/com/example/prog1learnapp/service/lsp/LspBridgeStartupTest.java`
-- [ ] `src/test/java/com/example/prog1learnapp/service/lsp/LspSessionManagerTest.java`
-- [ ] `src/test/java/com/example/prog1learnapp/controller/lsp/LspHealthControllerIntegrationTest.java`
+- [x] `src/test/java/com/example/prog1learnapp/service/lsp/LspBridgeStartupTest.java`
+- [x] `src/test/java/com/example/prog1learnapp/service/lsp/LspSessionManagerTest.java`
+- [x] `src/test/java/com/example/prog1learnapp/controller/lsp/LspHealthControllerIntegrationTest.java`
 - [ ] `src/test/java/com/example/prog1learnapp/controller/lsp/LspWebSocketHandlerIntegrationTest.java`
+
+---
+
+## Phase 6 - Prewarm on Login (Planned + Implementation)
+
+### Phase A - Config + Wiring
+- [x] Add `app.lsp.prewarm-on-login` flag in config/properties (default `false`).
+- [x] Keep behavior fully no-op when flag is disabled.
+
+### Phase B - Background Prewarm Trigger
+- [x] Trigger prewarm asynchronously after successful login (non-blocking).
+- [x] Use existing workspace key contract (`principal:httpSessionId`).
+- [x] Reuse existing LSP bridge/container lifecycle (no duplicate stack).
+- [x] Skip prewarm when backend for workspace already exists.
+
+### Phase C - Safety Controls
+- [x] Limit to one prewarm attempt in-flight per session key.
+- [x] Respect `max-sessions` saturation path (safe skip + log).
+- [x] Enforce prewarm timeout guard.
+- [x] Add structured prewarm logs (`start|skip|success|fail`, duration, workspaceKey).
+
+### Phase D - Measurement
+- [x] Add/keep login timing marker to compare impact.
+- [x] Keep exercise first `initialize` / first diagnostics metrics collection.
+- [x] Use saturation counters (`saturationRejectCount`) as acceptance signal.
+- [x] Add an automated before/after compare runner for prewarm `off` vs `on`.
+
+### Phase E - Tests
+- [x] Prewarm disabled => no prewarm call.
+- [x] Prewarm enabled => async prewarm trigger executes once per session key.
+- [x] Existing backend => prewarm skipped.
+- [x] Saturation/failure path => safe skip/fail with no login break.
+- [x] Login remains successful even if prewarm fails.
+
+### Exit Criteria
+- [x] Login flow remains non-blocking.
+- [ ] Exercise first `initialize` / diagnostics improves in measured runs.
+- [x] Saturation rejects remain explicit and controlled.
+- [x] Feature can be disabled instantly via `app.lsp.prewarm-on-login=false`.

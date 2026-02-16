@@ -43,6 +43,7 @@ class LspSessionManagerTest {
         }).when(bridge).detachSession(anyString());
         when(bridge.getAttachedSessionCount()).thenAnswer(inv -> attached.get());
         when(bridge.getLastAttachedEpochMs()).thenReturn(System.currentTimeMillis());
+        when(bridge.isRunning()).thenReturn(true);
 
         LspBridgeFactory bridgeFactory = Mockito.mock(LspBridgeFactory.class);
         when(bridgeFactory.create(anyString(), anyString(), anyLong(), anyLong())).thenReturn(bridge);
@@ -85,6 +86,7 @@ class LspSessionManagerTest {
         }).when(bridge).detachSession(anyString());
         when(bridge.getAttachedSessionCount()).thenAnswer(inv -> attached.get());
         when(bridge.getLastAttachedEpochMs()).thenReturn(System.currentTimeMillis());
+        when(bridge.isRunning()).thenReturn(true);
 
         LspBridgeFactory bridgeFactory = Mockito.mock(LspBridgeFactory.class);
         when(bridgeFactory.create(anyString(), anyString(), anyLong(), anyLong())).thenReturn(bridge);
@@ -129,6 +131,7 @@ class LspSessionManagerTest {
         doAnswer(invocation -> null).when(bridge).attachSession(any());
         when(bridge.getAttachedSessionCount()).thenReturn(1);
         when(bridge.getLastAttachedEpochMs()).thenReturn(System.currentTimeMillis());
+        when(bridge.isRunning()).thenReturn(true);
 
         LspBridgeFactory bridgeFactory = Mockito.mock(LspBridgeFactory.class);
         when(bridgeFactory.create(anyString(), anyString(), anyLong(), anyLong())).thenReturn(bridge);
@@ -152,6 +155,7 @@ class LspSessionManagerTest {
         doAnswer(invocation -> null).when(bridge).attachSession(any());
         when(bridge.getAttachedSessionCount()).thenReturn(1);
         when(bridge.getLastAttachedEpochMs()).thenReturn(System.currentTimeMillis());
+        when(bridge.isRunning()).thenReturn(true);
 
         LspBridgeFactory bridgeFactory = Mockito.mock(LspBridgeFactory.class);
         when(bridgeFactory.create(anyString(), anyString(), anyLong(), anyLong())).thenReturn(bridge);
@@ -167,6 +171,38 @@ class LspSessionManagerTest {
 
         sessionManager.close(ws);
         assertEquals(Optional.empty(), sessionManager.getWorkspaceUriForWebSocket("ws-1"));
+    }
+
+    @Test
+    void open_whenPrewarmedBridgeDied_recreatesBridgeAndContainer() throws Exception {
+        JdtLsContainerService containerService = Mockito.mock(JdtLsContainerService.class);
+        when(containerService.acquireContainer(anyString()))
+                .thenReturn(Optional.of("container-old"))
+                .thenReturn(Optional.of("container-new"));
+
+        LspBridge deadBridge = Mockito.mock(LspBridge.class);
+        when(deadBridge.isRunning()).thenReturn(false);
+
+        LspBridge newBridge = Mockito.mock(LspBridge.class);
+        when(newBridge.isRunning()).thenReturn(true);
+        when(newBridge.getAttachedSessionCount()).thenReturn(1);
+
+        LspBridgeFactory bridgeFactory = Mockito.mock(LspBridgeFactory.class);
+        when(bridgeFactory.create(anyString(), anyString(), anyLong(), anyLong()))
+                .thenReturn(deadBridge)
+                .thenReturn(newBridge);
+
+        LspSessionManager sessionManager = new LspSessionManager(containerService, new LspProperties(), bridgeFactory);
+        sessionManager.prewarmWorkspace("alice:http-1");
+
+        WebSocketSession ws = mockWs("ws-1", "alice", "http-1");
+        sessionManager.open(ws);
+
+        verify(deadBridge, times(1)).close();
+        verify(containerService, times(1)).forceRemove("alice:http-1");
+        verify(containerService, times(2)).acquireContainer("alice:http-1");
+        verify(newBridge, times(1)).start();
+        verify(newBridge, times(1)).attachSession(any());
     }
 
     private WebSocketSession mockWs(String wsId, String principalName, String httpSessionId) {

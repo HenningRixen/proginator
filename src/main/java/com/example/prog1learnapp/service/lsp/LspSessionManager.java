@@ -45,17 +45,21 @@ public class LspSessionManager {
 
         WorkspaceBridgeRecord existing = bridgeByWorkspaceKey.get(workspaceKey);
         if (existing != null) {
-            existing.bridge.attachSession(webSocketSession);
-            existing.lastUsedEpochMs = Instant.now().toEpochMilli();
-            bridgesByWebSocketId.put(wsId, existing.bridge);
-            workspaceKeyByWebSocketId.put(wsId, workspaceKey);
-            log.debug("LSP websocket session attached wsId={} workspaceKey={} container={} attachedSessions={} totalOpenMs={}",
-                    wsId,
-                    workspaceKey,
-                    existing.containerName,
-                    existing.bridge.getAttachedSessionCount(),
-                    elapsedMs(openStartedNs));
-            return;
+            if (!existing.bridge.isRunning()) {
+                evictStaleBridge(workspaceKey, existing, "open-reuse-dead-bridge");
+            } else {
+                existing.bridge.attachSession(webSocketSession);
+                existing.lastUsedEpochMs = Instant.now().toEpochMilli();
+                bridgesByWebSocketId.put(wsId, existing.bridge);
+                workspaceKeyByWebSocketId.put(wsId, workspaceKey);
+                log.debug("LSP websocket session attached wsId={} workspaceKey={} container={} attachedSessions={} totalOpenMs={}",
+                        wsId,
+                        workspaceKey,
+                        existing.containerName,
+                        existing.bridge.getAttachedSessionCount(),
+                        elapsedMs(openStartedNs));
+                return;
+            }
         }
 
         long acquireStartedNs = System.nanoTime();
@@ -112,6 +116,17 @@ public class LspSessionManager {
             throw new IOException("No active LSP bridge for websocket session");
         }
 
+        if (!bridge.isRunning()) {
+            String workspaceKey = workspaceKeyByWebSocketId.get(webSocketSession.getId());
+            if (workspaceKey != null) {
+                WorkspaceBridgeRecord record = bridgeByWorkspaceKey.get(workspaceKey);
+                if (record != null && record.bridge == bridge) {
+                    evictStaleBridge(workspaceKey, record, "forward-dead-bridge");
+                }
+            }
+            throw new IOException("LSP backend unavailable");
+        }
+
         bridge.sendClientMessage(payload);
     }
 
@@ -144,6 +159,72 @@ public class LspSessionManager {
             return Optional.empty();
         }
         return Optional.of(LspWorkspaceNaming.workspaceUri(workspaceKey));
+    }
+
+    public String workspaceKeyForSession(String principalName, String httpSessionId) {
+        return LspWorkspaceNaming.workspaceKey(principalName, httpSessionId, null);
+    }
+
+    public boolean hasBridgeForWorkspaceKey(String workspaceKey) {
+        WorkspaceBridgeRecord record = bridgeByWorkspaceKey.get(workspaceKey);
+        if (record == null) {
+            return false;
+        }
+        if (record.bridge.isRunning()) {
+            return true;
+        }
+        evictStaleBridge(workspaceKey, record, "health-check-dead-bridge");
+        return false;
+    }
+
+    public void prewarmWorkspace(String workspaceKey) throws IOException {
+        long startedNs = System.nanoTime();
+        if (workspaceKey == null || workspaceKey.isBlank()) {
+            throw new IOException("Missing workspace key for prewarm");
+        }
+
+        WorkspaceBridgeRecord existing = bridgeByWorkspaceKey.get(workspaceKey);
+        if (existing != null) {
+            if (existing.bridge.isRunning()) {
+                existing.lastUsedEpochMs = Instant.now().toEpochMilli();
+                log.debug("LSP prewarm skipped workspaceKey={} reason=already-warm durationMs={}",
+                        workspaceKey, elapsedMs(startedNs));
+                return;
+            }
+            evictStaleBridge(workspaceKey, existing, "prewarm-dead-bridge");
+        }
+
+        Optional<String> containerName = containerService.acquireContainer(workspaceKey);
+        if (containerName.isEmpty()) {
+            log.warn("LSP prewarm failed workspaceKey={} stage=acquireContainer durationMs={}",
+                    workspaceKey, elapsedMs(startedNs));
+            throw new IOException("No available LSP backend container for prewarm");
+        }
+
+        long connectTimeoutForPrewarmMs = Math.min(
+                lspProperties.getConnectTimeoutMs(),
+                Math.max(1000, lspProperties.getPrewarmTimeoutMs())
+        );
+
+        LspBridge bridge = lspBridgeFactory.create(
+                containerName.get(),
+                LspWorkspaceNaming.sanitizeForPath(workspaceKey),
+                connectTimeoutForPrewarmMs,
+                lspProperties.getStartupGraceMs()
+        );
+
+        try {
+            bridge.start();
+        } catch (IOException e) {
+            containerService.forceRemove(workspaceKey);
+            log.warn("LSP prewarm failed workspaceKey={} stage=bridgeStart timeoutMs={} durationMs={} error={}",
+                    workspaceKey, connectTimeoutForPrewarmMs, elapsedMs(startedNs), e.getMessage());
+            throw e;
+        }
+
+        bridgeByWorkspaceKey.put(workspaceKey, new WorkspaceBridgeRecord(containerName.get(), bridge));
+        log.info("LSP prewarm success workspaceKey={} container={} timeoutMs={} durationMs={}",
+                workspaceKey, containerName.get(), connectTimeoutForPrewarmMs, elapsedMs(startedNs));
     }
 
     @Scheduled(fixedDelayString = "${app.lsp.cleanup-interval-ms:30000}")
@@ -184,6 +265,18 @@ public class LspSessionManager {
 
     private long elapsedMs(long startedAtNs) {
         return (System.nanoTime() - startedAtNs) / 1_000_000;
+    }
+
+    private void evictStaleBridge(String workspaceKey, WorkspaceBridgeRecord record, String reason) {
+        boolean removed = bridgeByWorkspaceKey.remove(workspaceKey, record);
+        if (!removed) {
+            return;
+        }
+
+        record.bridge.close();
+        containerService.forceRemove(workspaceKey);
+        log.warn("Evicted stale LSP bridge workspaceKey={} container={} reason={}",
+                workspaceKey, record.containerName, reason);
     }
 
     private static final class WorkspaceBridgeRecord {

@@ -10,6 +10,7 @@ import org.mockito.Mockito;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
 
@@ -105,5 +106,37 @@ class LspWebSocketObservabilityIntegrationTest {
         handler.afterConnectionEstablished(webSocketSession);
 
         verify(webSocketSession).close(CloseStatus.SERVER_ERROR.withReason("LSP backend unavailable"));
+    }
+
+    @Test
+    void handleTextMessage_closesWithServerErrorWhenBackendUnavailable() throws Exception {
+        JdtLsContainerService containerService = Mockito.mock(JdtLsContainerService.class);
+        LspSessionManager sessionManager = Mockito.mock(LspSessionManager.class);
+        WebSocketSession webSocketSession = Mockito.mock(WebSocketSession.class);
+        when(webSocketSession.getId()).thenReturn("ws-msg-fail-1");
+
+        Mockito.doThrow(new IOException("LSP backend unavailable"))
+                .when(sessionManager).forwardClientMessage(any(), anyString());
+
+        LspWebSocketHandler handler = new LspWebSocketHandler(sessionManager, containerService);
+        handler.handleTextMessage(webSocketSession, new TextMessage("{\"jsonrpc\":\"2.0\"}"));
+
+        verify(webSocketSession).close(CloseStatus.SERVER_ERROR.withReason("LSP backend unavailable"));
+    }
+
+    @Test
+    void handleTextMessage_closesWithBadDataWhenPayloadTooLarge() throws Exception {
+        JdtLsContainerService containerService = Mockito.mock(JdtLsContainerService.class);
+        LspSessionManager sessionManager = Mockito.mock(LspSessionManager.class);
+        WebSocketSession webSocketSession = Mockito.mock(WebSocketSession.class);
+        when(webSocketSession.getId()).thenReturn("ws-msg-bad-1");
+
+        Mockito.doThrow(new IOException("LSP payload exceeds max size"))
+                .when(sessionManager).forwardClientMessage(any(), anyString());
+
+        LspWebSocketHandler handler = new LspWebSocketHandler(sessionManager, containerService);
+        handler.handleTextMessage(webSocketSession, new TextMessage("{\"jsonrpc\":\"2.0\"}"));
+
+        verify(webSocketSession).close(CloseStatus.BAD_DATA.withReason("Invalid or oversized LSP payload"));
     }
 }
