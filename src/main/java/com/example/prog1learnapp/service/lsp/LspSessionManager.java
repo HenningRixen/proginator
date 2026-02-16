@@ -68,7 +68,7 @@ public class LspSessionManager {
 
         LspBridge bridge = lspBridgeFactory.create(
                 containerName.get(),
-                sanitize(workspaceKey),
+                LspWorkspaceNaming.sanitizeForPath(workspaceKey),
                 lspProperties.getConnectTimeoutMs(),
                 lspProperties.getStartupGraceMs()
         );
@@ -138,6 +138,14 @@ public class LspSessionManager {
         return bridgeByWorkspaceKey.size();
     }
 
+    public Optional<String> getWorkspaceUriForWebSocket(String webSocketId) {
+        String workspaceKey = workspaceKeyByWebSocketId.get(webSocketId);
+        if (workspaceKey == null) {
+            return Optional.empty();
+        }
+        return Optional.of(LspWorkspaceNaming.workspaceUri(workspaceKey));
+    }
+
     @Scheduled(fixedDelayString = "${app.lsp.cleanup-interval-ms:30000}")
     public void cleanupIdleBridges() {
         if (bridgeByWorkspaceKey.isEmpty()) {
@@ -169,17 +177,9 @@ public class LspSessionManager {
     private String resolveWorkspaceKey(WebSocketSession webSocketSession) {
         Object httpSessionId = webSocketSession.getAttributes().get(HttpSessionHandshakeInterceptor.HTTP_SESSION_ID_ATTR_NAME);
         Principal principal = webSocketSession.getPrincipal();
-        String principalName = principal != null ? principal.getName() : "anonymous";
-
-        if (httpSessionId != null) {
-            return principalName + ":" + httpSessionId;
-        }
-
-        return principalName + ":" + webSocketSession.getId();
-    }
-
-    private String sanitize(String value) {
-        return value.replaceAll("[^a-zA-Z0-9-_]", "_");
+        String principalName = principal != null ? principal.getName() : null;
+        String httpSession = httpSessionId != null ? String.valueOf(httpSessionId) : null;
+        return LspWorkspaceNaming.workspaceKey(principalName, httpSession, webSocketSession.getId());
     }
 
     private long elapsedMs(long startedAtNs) {

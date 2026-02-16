@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ITERATIONS="${ITERATIONS:-10}"
-PORT="${PORT:-18080}"
+PORT="${PORT:-8080}"
 BASE_URL="http://127.0.0.1:${PORT}"
 CHROMEDRIVER_PORT="${CHROMEDRIVER_PORT:-9515}"
 OUT_DIR="${OUT_DIR:-target/lsp-phase0}"
@@ -196,7 +196,9 @@ const t0 = performance.now();
 const wsUrl = (location.protocol === "https:" ? "wss" : "ws") + "://" + location.host + "/api/lsp/ws";
 const ws = new WebSocket(wsUrl);
 const jsession = ((document.cookie || "").match(/(?:^|;\s*)JSESSIONID=([^;]+)/) || [])[1] || ("session-" + Date.now());
-const workspaceRoot = "file:///tmp/workspaces/test_" + jsession + "/project";
+const workspaceKey = "test:" + jsession;
+const sanitizedWorkspaceKey = workspaceKey.replace(/[^a-zA-Z0-9-_]/g, "_");
+const workspaceRoot = "file:///tmp/workspaces/" + sanitizedWorkspaceKey + "/project";
 const uri = workspaceRoot + "/src/Main.java";
 const source = "public class Main { public static void main(String[] args){ System.out.println(\"x\"); System.; } }";
 const brokenSource = "public class Main { public static void main(String[] args){ int y = ; } }";
@@ -294,11 +296,16 @@ ws.onopen = async () => {
   });
 
   const completionStart = performance.now();
-  await request("textDocument/completion", {
+  const completionResult = await request("textDocument/completion", {
     textDocument: { uri: uri },
     position: { line: 0, character: completionPos },
     context: { triggerKind: 1 }
   });
+  if (!completionResult || completionResult.error) {
+    metrics.error = "completion-timeout";
+    finish();
+    return;
+  }
   metrics.firstCompletionMs = Math.round(performance.now() - t0);
 
   send({

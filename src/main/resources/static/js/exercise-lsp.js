@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    function createClient(editor, exerciseId, workspaceUri) {
+    function createClient(editor, exerciseId, workspaceUri, wsUrlOverride) {
         const monaco = window.monaco;
         if (!monaco || !editor) {
             return null;
@@ -52,11 +52,17 @@
         const state = {
             socket: null,
             isReady: false,
+            lspState: 'idle',
             requestId: 1,
             pending: new Map(),
             model: model,
             version: 1,
             changeTimer: null,
+            hasUnsyncedChanges: false,
+            readyResolve: null,
+            readyPromise: null,
+            completionRequestInFlight: null,
+            completionRequestsSent: 0,
             providerDisposables: [],
             metrics: {
                 wsConnectStartMs: 0,
@@ -68,6 +74,53 @@
                 firstCompletionLogged: false
             }
         };
+        state.readyPromise = new Promise(function (resolve) {
+            state.readyResolve = resolve;
+        });
+
+        function getIndicatorElement() {
+            return document.getElementById('lsp-status-indicator');
+        }
+
+        function updateIndicatorElement(nextState) {
+            const indicator = getIndicatorElement();
+            if (!indicator) {
+                return;
+            }
+            const textElement = indicator.querySelector('.lsp-status__text');
+            const textByState = {
+                connecting: 'LSP verbindet...',
+                ready: 'LSP bereit',
+                degraded: 'LSP eingeschränkt',
+                failed: 'LSP nicht verfügbar'
+            };
+            indicator.className = 'lsp-status lsp-status--' + nextState;
+            indicator.setAttribute('data-state', nextState);
+            if (textElement) {
+                textElement.textContent = textByState[nextState] || 'LSP';
+            }
+        }
+
+        function setLspState(nextState, reason) {
+            if (state.lspState === nextState) {
+                return;
+            }
+            state.lspState = nextState;
+            updateIndicatorElement(nextState);
+            logPerf('state-change', {
+                sessionId: lspSessionId,
+                state: nextState,
+                reason: reason || null
+            });
+            if (!Array.isArray(window.__lspStateEvents)) {
+                window.__lspStateEvents = [];
+            }
+            window.__lspStateEvents.push({
+                ts: Date.now(),
+                state: nextState,
+                reason: reason || null
+            });
+        }
 
         function send(payload) {
             if (!state.socket || state.socket.readyState !== WebSocket.OPEN) {
@@ -76,7 +129,7 @@
             state.socket.send(JSON.stringify(payload));
         }
 
-        function sendRequest(method, params) {
+        function sendRequest(method, params, timeoutMs) {
             if (!state.socket || state.socket.readyState !== WebSocket.OPEN) {
                 return Promise.resolve(null);
             }
@@ -92,13 +145,72 @@
             return new Promise(function (resolve, reject) {
                 state.pending.set(id, { resolve: resolve, reject: reject });
                 send(payload);
+                const effectiveTimeoutMs = typeof timeoutMs === 'number' ? timeoutMs : 4000;
                 setTimeout(function () {
                     if (state.pending.has(id)) {
                         state.pending.delete(id);
                         resolve(null);
                     }
-                }, 4000);
+                }, effectiveTimeoutMs);
             });
+        }
+
+        function delay(ms) {
+            return new Promise(function (resolve) {
+                setTimeout(resolve, ms);
+            });
+        }
+
+        function isSocketOpen() {
+            return !!state.socket && state.socket.readyState === WebSocket.OPEN;
+        }
+
+        function sendRequestWithRetry(method, params, maxRetries, initialBackoffMs, timeoutMs) {
+            const retries = typeof maxRetries === 'number' ? maxRetries : 1;
+            const backoffStartMs = typeof initialBackoffMs === 'number' ? initialBackoffMs : 120;
+            let attempt = 0;
+
+            function tryOnce() {
+                return sendRequest(method, params, timeoutMs).then(function (result) {
+                    if (result !== null) {
+                        if (state.lspState === 'degraded' && state.isReady) {
+                            setLspState('ready', method + '-recovered');
+                        }
+                        return result;
+                    }
+                    if (attempt >= retries || !isSocketOpen()) {
+                        if (state.isReady) {
+                            setLspState('degraded', method + '-timeout');
+                        } else {
+                            setLspState('failed', method + '-timeout');
+                        }
+                        throw new Error(method + '-timeout');
+                    }
+                    if (state.isReady) {
+                        setLspState('degraded', method + '-retry-' + (attempt + 1));
+                    }
+                    const waitMs = backoffStartMs * Math.pow(2, attempt);
+                    attempt += 1;
+                    return delay(waitMs).then(tryOnce);
+                }).catch(function (error) {
+                    if (attempt >= retries || !isSocketOpen()) {
+                        if (state.isReady) {
+                            setLspState('degraded', method + '-error');
+                        } else {
+                            setLspState('failed', method + '-error');
+                        }
+                        throw error;
+                    }
+                    if (state.isReady) {
+                        setLspState('degraded', method + '-retry-' + (attempt + 1));
+                    }
+                    const waitMs = backoffStartMs * Math.pow(2, attempt);
+                    attempt += 1;
+                    return delay(waitMs).then(tryOnce);
+                });
+            }
+
+            return tryOnce();
         }
 
         function sendNotification(method, params) {
@@ -110,12 +222,13 @@
         }
 
         function flushDidChange() {
-            if (!state.isReady) {
+            state.changeTimer = null;
+            if (!state.isReady || !state.hasUnsyncedChanges) {
                 return;
             }
 
             state.version += 1;
-            state.changeTimer = null;
+            state.hasUnsyncedChanges = false;
             sendNotification('textDocument/didChange', {
                 textDocument: {
                     uri: state.model.uri.toString(),
@@ -126,15 +239,42 @@
         }
 
         function ensureLatestDocumentSent() {
+            if (!state.isReady) {
+                return;
+            }
+
             if (state.changeTimer) {
                 clearTimeout(state.changeTimer);
+                state.changeTimer = null;
+            }
+            if (state.hasUnsyncedChanges) {
                 flushDidChange();
             }
         }
 
+        function scheduleDidChange(delayMs) {
+            clearTimeout(state.changeTimer);
+            state.changeTimer = setTimeout(flushDidChange, delayMs);
+        }
+
+        function waitUntilReady(timeoutMs) {
+            if (state.isReady) {
+                return Promise.resolve(true);
+            }
+            return Promise.race([
+                state.readyPromise.then(function () { return true; }),
+                new Promise(function (resolve) {
+                    setTimeout(function () {
+                        resolve(state.isReady);
+                    }, timeoutMs);
+                })
+            ]);
+        }
+
         function connect() {
             const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-            const wsUrl = protocol + '://' + window.location.host + '/api/lsp/ws';
+            const wsUrl = wsUrlOverride || (protocol + '://' + window.location.host + '/api/lsp/ws');
+            setLspState('connecting', 'socket-connect-start');
             state.metrics.wsConnectStartMs = perfNow();
             perfMark('lsp-' + lspSessionId + '-ws-connect-start');
             state.socket = new WebSocket(wsUrl);
@@ -150,7 +290,7 @@
 
                 state.metrics.initializeStartMs = perfNow();
                 perfMark('lsp-' + lspSessionId + '-initialize-start');
-                sendRequest('initialize', {
+                sendRequestWithRetry('initialize', {
                     processId: null,
                     rootUri: normalizedWorkspaceUri,
                     capabilities: {
@@ -173,7 +313,11 @@
                         name: 'proginator-monaco',
                         version: '1.0.0'
                     }
-                }).then(function () {
+                }, 1, 250, 30000).then(function (initResult) {
+                    if (!initResult) {
+                        setLspState('failed', 'initialize-empty');
+                        return;
+                    }
                     state.metrics.initializeEndMs = perfNow();
                     perfMark('lsp-' + lspSessionId + '-initialize-end');
                     perfMeasure('lsp-' + lspSessionId + '-initialize-latency', 'lsp-' + lspSessionId + '-initialize-start', 'lsp-' + lspSessionId + '-initialize-end');
@@ -198,6 +342,17 @@
                         }
                     });
                     state.isReady = true;
+                    setLspState('ready', 'initialize-complete');
+                    if (state.readyResolve) {
+                        state.readyResolve(true);
+                        state.readyResolve = null;
+                    }
+                    if (state.hasUnsyncedChanges) {
+                        scheduleDidChange(0);
+                    }
+                }).catch(function () {
+                    state.isReady = false;
+                    setLspState('failed', 'initialize-error');
                 });
             });
 
@@ -227,10 +382,20 @@
 
             state.socket.addEventListener('close', function () {
                 state.isReady = false;
+                if (state.lspState === 'ready' || state.lspState === 'degraded') {
+                    setLspState('degraded', 'socket-closed');
+                } else {
+                    setLspState('failed', 'socket-closed-before-ready');
+                }
             });
 
             state.socket.addEventListener('error', function () {
                 state.isReady = false;
+                if (state.lspState === 'ready' || state.lspState === 'degraded') {
+                    setLspState('degraded', 'socket-error');
+                } else {
+                    setLspState('failed', 'socket-error-before-ready');
+                }
             });
         }
 
@@ -286,82 +451,101 @@
             const completionDisposable = monaco.languages.registerCompletionItemProvider('java', {
                 triggerCharacters: ['.', '(', ','],
                 provideCompletionItems: function (currentModel, position, context) {
-                    if (!state.isReady || currentModel.uri.toString() !== state.model.uri.toString()) {
-                        return { suggestions: [] };
+                    if (currentModel.uri.toString() !== state.model.uri.toString()) {
+                        return Promise.resolve({ suggestions: [] });
                     }
-                    ensureLatestDocumentSent();
-                    const completionStartMs = perfNow();
 
-                    return sendRequest('textDocument/completion', {
-                        textDocument: { uri: currentModel.uri.toString() },
-                        position: {
-                            line: position.lineNumber - 1,
-                            character: position.column - 1
-                        },
-                        context: {
-                            triggerKind: context && context.triggerKind ? context.triggerKind : 1,
-                            triggerCharacter: context && context.triggerCharacter ? context.triggerCharacter : undefined
+                    return waitUntilReady(1500).then(function (ready) {
+                        if (!ready) {
+                            return { suggestions: [] };
                         }
-                    }).then(function (result) {
-                        const items = normalizeCompletionItems(result);
-                        if (!state.metrics.firstCompletionLogged) {
-                            state.metrics.firstCompletionLogged = true;
-                            perfMark('lsp-' + lspSessionId + '-first-completion-end');
-                            perfMeasure(
-                                'lsp-' + lspSessionId + '-first-completion-latency',
-                                'lsp-' + lspSessionId + '-ws-connect-start',
-                                'lsp-' + lspSessionId + '-first-completion-end'
-                            );
-                            logPerf('first-completion-roundtrip', {
-                                sessionId: lspSessionId,
-                                roundtripMs: Math.round(perfNow() - completionStartMs),
-                                sinceWsConnectMs: Math.round(perfNow() - state.metrics.wsConnectStartMs)
-                            });
+                        ensureLatestDocumentSent();
+                        const completionStartMs = perfNow();
+                        if (state.completionRequestInFlight) {
+                            return state.completionRequestInFlight;
                         }
-                        return {
-                            suggestions: items.map(function (item) {
-                                return {
-                                    label: item.label || '',
-                                    kind: mapCompletionKind(monaco, item.kind),
-                                    detail: item.detail || '',
-                                    documentation: item.documentation && item.documentation.value ? item.documentation.value : item.documentation,
-                                    insertText: item.insertText || item.label || '',
-                                    sortText: item.sortText || item.label || ''
-                                };
-                            })
-                        };
-                    }).catch(function () {
-                        return { suggestions: [] };
+
+                        state.completionRequestsSent += 1;
+                        state.completionRequestInFlight = sendRequestWithRetry('textDocument/completion', {
+                            textDocument: { uri: currentModel.uri.toString() },
+                            position: {
+                                line: position.lineNumber - 1,
+                                character: position.column - 1
+                            },
+                            context: {
+                                triggerKind: context && context.triggerKind ? context.triggerKind : 1,
+                                triggerCharacter: context && context.triggerCharacter ? context.triggerCharacter : undefined
+                            }
+                        }, 1, 120, 4000).then(function (result) {
+                            const items = normalizeCompletionItems(result);
+                            if (!state.metrics.firstCompletionLogged) {
+                                state.metrics.firstCompletionLogged = true;
+                                perfMark('lsp-' + lspSessionId + '-first-completion-end');
+                                perfMeasure(
+                                    'lsp-' + lspSessionId + '-first-completion-latency',
+                                    'lsp-' + lspSessionId + '-ws-connect-start',
+                                    'lsp-' + lspSessionId + '-first-completion-end'
+                                );
+                                logPerf('first-completion-roundtrip', {
+                                    sessionId: lspSessionId,
+                                    roundtripMs: Math.round(perfNow() - completionStartMs),
+                                    sinceWsConnectMs: Math.round(perfNow() - state.metrics.wsConnectStartMs)
+                                });
+                            }
+                            return {
+                                suggestions: items.map(function (item) {
+                                    return {
+                                        label: item.label || '',
+                                        kind: mapCompletionKind(monaco, item.kind),
+                                        detail: item.detail || '',
+                                        documentation: item.documentation && item.documentation.value ? item.documentation.value : item.documentation,
+                                        insertText: item.insertText || item.label || '',
+                                        sortText: item.sortText || item.label || ''
+                                    };
+                                })
+                            };
+                        }).catch(function () {
+                            return { suggestions: [] };
+                        }).finally(function () {
+                            state.completionRequestInFlight = null;
+                        });
+                        return state.completionRequestInFlight;
                     });
                 }
             });
 
             const hoverDisposable = monaco.languages.registerHoverProvider('java', {
                 provideHover: function (currentModel, position) {
-                    if (!state.isReady || currentModel.uri.toString() !== state.model.uri.toString()) {
-                        return null;
+                    if (currentModel.uri.toString() !== state.model.uri.toString()) {
+                        return Promise.resolve(null);
                     }
-                    ensureLatestDocumentSent();
 
-                    return sendRequest('textDocument/hover', {
-                        textDocument: { uri: currentModel.uri.toString() },
-                        position: {
-                            line: position.lineNumber - 1,
-                            character: position.column - 1
-                        }
-                    }).then(function (result) {
-                        if (!result || !result.contents) {
+                    return waitUntilReady(1500).then(function (ready) {
+                        if (!ready) {
                             return null;
                         }
+                        ensureLatestDocumentSent();
 
-                        const value = toMarkdown(result.contents);
-                        if (!value) {
+                        return sendRequestWithRetry('textDocument/hover', {
+                            textDocument: { uri: currentModel.uri.toString() },
+                            position: {
+                                line: position.lineNumber - 1,
+                                character: position.column - 1
+                            }
+                        }, 1, 120, 4000).then(function (result) {
+                            if (!result || !result.contents) {
+                                return null;
+                            }
+
+                            const value = toMarkdown(result.contents);
+                            if (!value) {
+                                return null;
+                            }
+
+                            return { contents: [{ value: value }] };
+                        }).catch(function () {
                             return null;
-                        }
-
-                        return { contents: [{ value: value }] };
-                    }).catch(function () {
-                        return null;
+                        });
                     });
                 }
             });
@@ -369,37 +553,43 @@
             const signatureDisposable = monaco.languages.registerSignatureHelpProvider('java', {
                 signatureHelpTriggerCharacters: ['(', ','],
                 provideSignatureHelp: function (currentModel, position) {
-                    if (!state.isReady || currentModel.uri.toString() !== state.model.uri.toString()) {
-                        return null;
+                    if (currentModel.uri.toString() !== state.model.uri.toString()) {
+                        return Promise.resolve(null);
                     }
-                    ensureLatestDocumentSent();
 
-                    return sendRequest('textDocument/signatureHelp', {
-                        textDocument: { uri: currentModel.uri.toString() },
-                        position: {
-                            line: position.lineNumber - 1,
-                            character: position.column - 1
-                        }
-                    }).then(function (result) {
-                        if (!result || !result.signatures) {
+                    return waitUntilReady(1500).then(function (ready) {
+                        if (!ready) {
                             return null;
                         }
-                        return {
-                            value: {
-                                signatures: result.signatures.map(function (sig) {
-                                    return {
-                                        label: sig.label,
-                                        documentation: sig.documentation && sig.documentation.value ? sig.documentation.value : sig.documentation,
-                                        parameters: sig.parameters || []
-                                    };
-                                }),
-                                activeSignature: result.activeSignature || 0,
-                                activeParameter: result.activeParameter || 0
-                            },
-                            dispose: function () {}
-                        };
-                    }).catch(function () {
-                        return null;
+                        ensureLatestDocumentSent();
+
+                        return sendRequestWithRetry('textDocument/signatureHelp', {
+                            textDocument: { uri: currentModel.uri.toString() },
+                            position: {
+                                line: position.lineNumber - 1,
+                                character: position.column - 1
+                            }
+                        }, 1, 120, 4000).then(function (result) {
+                            if (!result || !result.signatures) {
+                                return null;
+                            }
+                            return {
+                                value: {
+                                    signatures: result.signatures.map(function (sig) {
+                                        return {
+                                            label: sig.label,
+                                            documentation: sig.documentation && sig.documentation.value ? sig.documentation.value : sig.documentation,
+                                            parameters: sig.parameters || []
+                                        };
+                                    }),
+                                    activeSignature: result.activeSignature || 0,
+                                    activeParameter: result.activeParameter || 0
+                                },
+                                dispose: function () {}
+                            };
+                        }).catch(function () {
+                            return null;
+                        });
                     });
                 }
             });
@@ -458,9 +648,12 @@
         }
 
         state.model.onDidChangeContent(function () {
-            clearTimeout(state.changeTimer);
-            state.changeTimer = setTimeout(flushDidChange, 250);
+            state.hasUnsyncedChanges = true;
+            if (state.isReady) {
+                scheduleDidChange(250);
+            }
         });
+        setLspState('connecting', 'client-created');
 
         registerProviders();
         editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Space, function () {
@@ -469,6 +662,20 @@
         connect();
 
         return {
+            getState: function () {
+                return state.lspState;
+            },
+            getCompletionRequestsSent: function () {
+                return state.completionRequestsSent;
+            },
+            getStateEvents: function () {
+                return Array.isArray(window.__lspStateEvents) ? window.__lspStateEvents.slice() : [];
+            },
+            debugForceSocketClose: function () {
+                if (state.socket && state.socket.readyState === WebSocket.OPEN) {
+                    state.socket.close();
+                }
+            },
             dispose: function () {
                 clearTimeout(state.changeTimer);
                 if (state.isReady) {
@@ -481,6 +688,7 @@
                 }
                 monaco.editor.setModelMarkers(state.model, 'jdtls', []);
                 state.providerDisposables.forEach(function (d) { d.dispose(); });
+                setLspState('degraded', 'disposed');
             }
         };
     }
@@ -491,8 +699,16 @@
         }
 
         try {
-            return createClient(options.editor, options.exerciseId, options.workspaceUri);
+            return createClient(options.editor, options.exerciseId, options.workspaceUri, options.wsUrl);
         } catch (error) {
+            const indicator = document.getElementById('lsp-status-indicator');
+            if (indicator) {
+                indicator.className = 'lsp-status lsp-status--failed';
+                const text = indicator.querySelector('.lsp-status__text');
+                if (text) {
+                    text.textContent = 'LSP nicht verfügbar';
+                }
+            }
             if (window.showNotification) {
                 window.showNotification('Java-Hinweise nicht verfügbar. Editor läuft ohne LSP.', 'error');
             }

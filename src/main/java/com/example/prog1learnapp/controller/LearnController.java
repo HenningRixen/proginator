@@ -7,6 +7,7 @@ import com.example.prog1learnapp.model.Exercise;
 import com.example.prog1learnapp.repository.UserRepository;
 import com.example.prog1learnapp.repository.LessonRepository;
 import com.example.prog1learnapp.repository.ExerciseRepository;
+import com.example.prog1learnapp.service.lsp.LspWorkspaceNaming;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
@@ -147,7 +148,9 @@ public class LearnController {
         model.addAttribute("nextExercise", getNextExerciseId(exercise));
         model.addAttribute("authenticated", user != null);
         model.addAttribute("lspEnabled", lspEnabled);
-        model.addAttribute("lspWorkspaceUri", "file:///tmp/workspaces/test_" + request.getSession().getId() + "/project");
+        String principalName = principal != null ? principal.getName() : "anonymous";
+        String workspaceKey = LspWorkspaceNaming.workspaceKey(principalName, request.getSession().getId(), null);
+        model.addAttribute("lspWorkspaceUri", LspWorkspaceNaming.workspaceUri(workspaceKey));
 
         return "exercise";
     }

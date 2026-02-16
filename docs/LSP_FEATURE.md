@@ -149,7 +149,7 @@ LSP script is only included for interactive exercises (`exercise.interactive`).
 
 `LearnController.exercise(...)` injects:
 - `lspEnabled`: from `app.lsp.enabled`
-- `lspWorkspaceUri`: `file:///tmp/workspaces/test_<httpSessionId>/project`
+- `lspWorkspaceUri`: `file:///tmp/workspaces/<sanitize(principalName:httpSessionId)>/project`
 
 Client initialization (in template):
 - Starts Monaco.

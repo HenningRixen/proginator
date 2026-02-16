@@ -2,6 +2,7 @@ package com.example.prog1learnapp.service.lsp;
 
 import com.example.prog1learnapp.config.lsp.LspProperties;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
@@ -61,6 +62,10 @@ class LspSessionManagerTest {
         verify(bridge, times(1)).start();
         verify(bridge, times(2)).attachSession(any());
         assertEquals(1, sessionManager.getActiveBridgeCount());
+
+        ArgumentCaptor<String> bridgeWorkspaceCaptor = ArgumentCaptor.forClass(String.class);
+        verify(bridgeFactory).create(anyString(), bridgeWorkspaceCaptor.capture(), anyLong(), anyLong());
+        assertEquals("alice_http-1", bridgeWorkspaceCaptor.getValue());
     }
 
     @Test
@@ -115,6 +120,55 @@ class LspSessionManagerTest {
         assertThrows(IOException.class, () -> sessionManager.open(ws1));
     }
 
+    @Test
+    void open_withoutHttpSession_usesWebSocketFallbackInWorkspaceKey() throws Exception {
+        JdtLsContainerService containerService = Mockito.mock(JdtLsContainerService.class);
+        when(containerService.acquireContainer(anyString())).thenReturn(Optional.of("container-1"));
+
+        LspBridge bridge = Mockito.mock(LspBridge.class);
+        doAnswer(invocation -> null).when(bridge).attachSession(any());
+        when(bridge.getAttachedSessionCount()).thenReturn(1);
+        when(bridge.getLastAttachedEpochMs()).thenReturn(System.currentTimeMillis());
+
+        LspBridgeFactory bridgeFactory = Mockito.mock(LspBridgeFactory.class);
+        when(bridgeFactory.create(anyString(), anyString(), anyLong(), anyLong())).thenReturn(bridge);
+
+        LspSessionManager sessionManager = new LspSessionManager(containerService, new LspProperties(), bridgeFactory);
+        WebSocketSession ws = mockWsWithoutHttpSession("ws-fallback-1", "alice");
+
+        sessionManager.open(ws);
+
+        ArgumentCaptor<String> workspaceCaptor = ArgumentCaptor.forClass(String.class);
+        verify(containerService).acquireContainer(workspaceCaptor.capture());
+        assertEquals("alice:ws-fallback-1", workspaceCaptor.getValue());
+    }
+
+    @Test
+    void getWorkspaceUriForWebSocket_returnsStableMappedUri() throws Exception {
+        JdtLsContainerService containerService = Mockito.mock(JdtLsContainerService.class);
+        when(containerService.acquireContainer(anyString())).thenReturn(Optional.of("container-1"));
+
+        LspBridge bridge = Mockito.mock(LspBridge.class);
+        doAnswer(invocation -> null).when(bridge).attachSession(any());
+        when(bridge.getAttachedSessionCount()).thenReturn(1);
+        when(bridge.getLastAttachedEpochMs()).thenReturn(System.currentTimeMillis());
+
+        LspBridgeFactory bridgeFactory = Mockito.mock(LspBridgeFactory.class);
+        when(bridgeFactory.create(anyString(), anyString(), anyLong(), anyLong())).thenReturn(bridge);
+
+        LspSessionManager sessionManager = new LspSessionManager(containerService, new LspProperties(), bridgeFactory);
+        WebSocketSession ws = mockWs("ws-1", "alice", "http-1");
+
+        sessionManager.open(ws);
+        assertEquals(
+                Optional.of("file:///tmp/workspaces/alice_http-1/project"),
+                sessionManager.getWorkspaceUriForWebSocket("ws-1")
+        );
+
+        sessionManager.close(ws);
+        assertEquals(Optional.empty(), sessionManager.getWorkspaceUriForWebSocket("ws-1"));
+    }
+
     private WebSocketSession mockWs(String wsId, String principalName, String httpSessionId) {
         WebSocketSession ws = Mockito.mock(WebSocketSession.class);
         Principal principal = () -> principalName;
@@ -123,6 +177,15 @@ class LspSessionManagerTest {
         when(ws.getAttributes()).thenReturn(
                 Map.of(HttpSessionHandshakeInterceptor.HTTP_SESSION_ID_ATTR_NAME, httpSessionId)
         );
+        return ws;
+    }
+
+    private WebSocketSession mockWsWithoutHttpSession(String wsId, String principalName) {
+        WebSocketSession ws = Mockito.mock(WebSocketSession.class);
+        Principal principal = () -> principalName;
+        when(ws.getId()).thenReturn(wsId);
+        when(ws.getPrincipal()).thenReturn(principal);
+        when(ws.getAttributes()).thenReturn(Map.of());
         return ws;
     }
 }

@@ -161,18 +161,18 @@ Speed up LSP readiness for interactive exercises (diagnostics + completion + hov
 
 ### Code Touchpoints
 - `src/main/java/com/example/prog1learnapp/controller/LearnController.java`
-  - [ ] Revisit `lspWorkspaceUri` derivation consistency with backend workspace keys.
+  - [x] Revisit `lspWorkspaceUri` derivation consistency with backend workspace keys.
 - `src/main/resources/static/js/exercise-lsp.js`
-  - [ ] Ensure bootstrap sequence is minimal and deterministic.
-  - [ ] Use sequence: initialize -> initialized -> didOpen -> debounced didChange.
-  - [ ] Send latest document state before completion/hover/signature requests.
+  - [x] Ensure bootstrap sequence is minimal and deterministic.
+  - [x] Use sequence: initialize -> initialized -> didOpen -> debounced didChange.
+  - [x] Send latest document state before completion/hover/signature requests.
 - `src/main/java/com/example/prog1learnapp/service/lsp/LspSessionManager.java`
-  - [ ] Optional: expose stable workspace mapping metadata if client/server alignment is improved.
+  - [x] Optional: expose stable workspace mapping metadata if client/server alignment is improved.
 
 ### Test Cases
-- [ ] First-diagnostics latency test: first `publishDiagnostics` arrives faster vs previous phase.
-- [ ] Completion readiness test: trigger completion immediately after editor open; success rate and latency improve.
-- [ ] Workspace continuity test: reopen same session and confirm faster semantic readiness (cache reuse effect).
+- [x] First-diagnostics latency test: first `publishDiagnostics` arrives faster vs previous phase.
+- [x] Completion readiness test: trigger completion immediately after editor open; success rate and latency improve.
+- [x] Workspace continuity test: reopen same session and confirm faster semantic readiness (cache reuse effect).
 
 ### Exit Criteria
 - [ ] Measurable drop in first diagnostics and first completion latency.
@@ -183,26 +183,26 @@ Speed up LSP readiness for interactive exercises (diagnostics + completion + hov
 ## Phase 4 - Client Responsiveness and UX Signaling
 
 ### Objectives
-- [ ] Improve perceived speed and avoid silent waiting.
+- [x] Improve perceived speed and avoid silent waiting.
 
 ### Code Touchpoints
 - `src/main/resources/static/js/exercise-lsp.js`
-  - [ ] Add explicit LSP state machine (`connecting`, `ready`, `degraded`, `failed`).
-  - [ ] Gate request-heavy providers until `ready`.
-  - [ ] Add retry/backoff for transient request failures.
+  - [x] Add explicit LSP state machine (`connecting`, `ready`, `degraded`, `failed`).
+  - [x] Gate request-heavy providers until `ready`.
+  - [x] Add retry/backoff for transient request failures.
 - `src/main/resources/templates/exercise.html`
-  - [ ] Add a small non-intrusive UI indicator for LSP status.
+  - [x] Add a small non-intrusive UI indicator for LSP status.
 - `src/main/resources/static/css/exercise.css`
-  - [ ] Add styles for LSP status indicator states.
+  - [x] Add styles for LSP status indicator states.
 
 ### Test Cases
-- [ ] UX state test: indicator transitions correctly on normal start, socket error, backend unavailable.
-- [ ] Degraded mode test: editor remains usable without LSP; no blocking JS errors.
-- [ ] Request-throttle test: no burst of completion requests during initialization phase.
+- [x] UX state test: indicator transitions correctly on normal start, socket error, backend unavailable.
+- [x] Degraded mode test: editor remains usable without LSP; no blocking JS errors.
+- [x] Request-throttle test: no burst of completion requests during initialization phase.
 
 ### Exit Criteria
-- [ ] Users see clear LSP readiness state.
-- [ ] No dead/blocked autocomplete attempts during startup.
+- [x] Users see clear LSP readiness state.
+- [x] No dead/blocked autocomplete attempts during startup.
 
 ---
 
@@ -248,16 +248,3 @@ Speed up LSP readiness for interactive exercises (diagnostics + completion + hov
 - [ ] `src/test/java/com/example/prog1learnapp/service/lsp/LspSessionManagerTest.java`
 - [ ] `src/test/java/com/example/prog1learnapp/controller/lsp/LspHealthControllerIntegrationTest.java`
 - [ ] `src/test/java/com/example/prog1learnapp/controller/lsp/LspWebSocketHandlerIntegrationTest.java`
-
-## Rollout Plan
-1. [ ] Phase 0 + 1 in one PR (fastest impact).
-2. [ ] Phase 2 as separate PR (higher complexity).
-3. [ ] Phase 3 + 4 grouped if touchpoints overlap.
-4. [ ] Phase 5 tuning after at least one week of measured usage.
-
-## Tracking Template (for each PR)
-- [ ] Baseline metrics (before):
-- [ ] Metrics after change:
-- [ ] Files touched:
-- [ ] Risks introduced:
-- [ ] Rollback strategy:
