@@ -295,11 +295,7 @@
                     rootUri: normalizedWorkspaceUri,
                     capabilities: {
                         textDocument: {
-                            completion: {
-                                completionItem: { snippetSupport: true }
-                            },
-                            hover: {},
-                            signatureHelp: {},
+                            completion: { completionItem: { snippetSupport: true } },
                             publishDiagnostics: {}
                         }
                     },

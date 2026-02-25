@@ -55,6 +55,27 @@ class JdtLsContainerServiceSaturationTest {
         assertTrue(remaining.containsKey("active-session"));
     }
 
+    @Test
+    void acquireContainer_usesIdlePoolBeforeCreatingNewContainer() throws Exception {
+        LspProperties properties = new LspProperties();
+        properties.setEnabled(true);
+        properties.setMaxSessions(5);
+        JdtLsContainerService service = new JdtLsContainerService(properties);
+
+        setField(service, "dockerAvailable", true);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> idlePool = (Map<String, Object>) getField(service, "idleContainers");
+        idlePool.put("proginator-jdtls-idle-pool-a", newIdleContainer("proginator-jdtls-idle-pool-a", System.currentTimeMillis()));
+
+        Optional<String> container = service.acquireContainer("session-a");
+        JdtLsContainerService.SaturationSnapshot snapshot = service.getSaturationSnapshot();
+
+        assertTrue(container.isPresent());
+        assertEquals("proginator-jdtls-idle-pool-a", container.get());
+        assertEquals(1, snapshot.getAcquireIdlePoolHitCount());
+        assertEquals(0, snapshot.getAcquireCreateCount());
+    }
+
     private Object newContainerSession(String containerName, int refCount, long lastUsedEpochMs) throws Exception {
         Class<?> containerSessionClass = Class.forName(
                 "com.example.prog1learnapp.service.lsp.JdtLsContainerService$ContainerSession"
@@ -65,6 +86,17 @@ class JdtLsContainerServiceSaturationTest {
         setField(session, "refCount", refCount);
         setField(session, "lastUsedEpochMs", lastUsedEpochMs);
         return session;
+    }
+
+    private Object newIdleContainer(String containerName, long lastUsedEpochMs) throws Exception {
+        Class<?> idleContainerClass = Class.forName(
+                "com.example.prog1learnapp.service.lsp.JdtLsContainerService$IdleContainer"
+        );
+        Constructor<?> constructor = idleContainerClass.getDeclaredConstructor(String.class);
+        constructor.setAccessible(true);
+        Object idle = constructor.newInstance(containerName);
+        setField(idle, "lastUsedEpochMs", lastUsedEpochMs);
+        return idle;
     }
 
     private void setField(Object target, String fieldName, Object value) throws Exception {

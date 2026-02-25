@@ -11,9 +11,10 @@ APP_LOG="${OUT_DIR}/app.log"
 CHROMEDRIVER_LOG="${OUT_DIR}/chromedriver.log"
 RAW_JSON="${OUT_DIR}/load-raw.json"
 SUMMARY_JSON="${OUT_DIR}/load-summary.json"
+CONTAINER_DIAG_JSON="${OUT_DIR}/container-diagnostics.json"
 
 mkdir -p "${OUT_DIR}"
-rm -f "${RAW_JSON}" "${SUMMARY_JSON}"
+rm -f "${RAW_JSON}" "${SUMMARY_JSON}" "${CONTAINER_DIAG_JSON}"
 
 APP_PID=""
 CHROMEDRIVER_PID=""
@@ -322,16 +323,19 @@ function runClient(index) {
 summarize() {
   local raw="$1"
   echo "${raw}" > "${RAW_JSON}"
-  python3 - <<'PY' "${RAW_JSON}" "${SUMMARY_JSON}" "${USERS}"
+  python3 - <<'PY' "${RAW_JSON}" "${SUMMARY_JSON}" "${USERS}" "${CONTAINER_DIAG_JSON}"
 import json
 import sys
 
 raw_path = sys.argv[1]
 summary_path = sys.argv[2]
 users = int(sys.argv[3])
+container_diag_path = sys.argv[4]
 
 with open(raw_path, "r", encoding="utf-8") as fh:
     raw = json.load(fh)
+with open(container_diag_path, "r", encoding="utf-8") as fh:
+    container_diag = json.load(fh)
 
 success_rate = raw.get("successRate", 0.0)
 health = raw.get("health", {})
@@ -347,7 +351,8 @@ summary = {
     "metrics": raw.get("metrics"),
     "activeContainers": health_body.get("activeContainers"),
     "activeBridges": health_body.get("activeBridges"),
-    "saturation": saturation
+    "saturation": saturation,
+    "containerDiagnostics": container_diag
 }
 
 with open(summary_path, "w", encoding="utf-8") as fh:
@@ -357,6 +362,43 @@ print(json.dumps(summary, indent=2))
 if not summary["thresholdPass"]:
     sys.exit(2)
 PY
+}
+
+collect_container_diagnostics() {
+  if ! command -v docker >/dev/null 2>&1; then
+    printf '{"available":false,"reason":"docker-cli-missing"}\n' > "${CONTAINER_DIAG_JSON}"
+    return
+  fi
+  local containers
+  containers="$(docker ps -a --filter "name=proginator-jdtls-" --format '{{.Names}}' 2>/dev/null || true)"
+  if [[ -z "${containers}" ]]; then
+    printf '{"available":true,"containers":[],"oomKilledCount":0,"nonZeroExitCount":0}\n' > "${CONTAINER_DIAG_JSON}"
+    return
+  fi
+  {
+    echo '{"available":true,"containers":['
+    local first=1
+    local oom=0
+    local nonzero=0
+    while IFS= read -r name; do
+      [[ -z "${name}" ]] && continue
+      local inspect
+      inspect="$(docker inspect "${name}" 2>/dev/null | jq -c '.[0].State | {name:"'"${name}"'",status:.Status,exitCode:(.ExitCode//0),oomKilled:(.OOMKilled//false),error:(.Error//"")}' || true)"
+      if [[ -z "${inspect}" ]]; then
+        continue
+      fi
+      local exit_code
+      exit_code="$(echo "${inspect}" | jq -r '.exitCode // 0')"
+      local oom_killed
+      oom_killed="$(echo "${inspect}" | jq -r '.oomKilled // false')"
+      if [[ "${exit_code}" != "0" ]]; then nonzero=$((nonzero + 1)); fi
+      if [[ "${oom_killed}" == "true" ]]; then oom=$((oom + 1)); fi
+      if [[ $first -eq 0 ]]; then echo ','; fi
+      first=0
+      echo "${inspect}"
+    done <<< "${containers}"
+    echo '],"oomKilledCount":'"${oom}"',"nonZeroExitCount":'"${nonzero}"'}'
+  } | tr -d '\n' > "${CONTAINER_DIAG_JSON}"
 }
 
 echo "Starting app on ${BASE_URL}"
@@ -372,6 +414,7 @@ open_interactive_exercise
 echo "Running concurrent LSP load simulation users=${USERS}"
 RESULT="$(run_concurrent_lsp_clients)"
 echo "Result: ${RESULT}"
+collect_container_diagnostics
 echo "Summarizing load metrics"
 summarize "${RESULT}"
 echo "Phase 5 load check complete. Summary: ${SUMMARY_JSON}"

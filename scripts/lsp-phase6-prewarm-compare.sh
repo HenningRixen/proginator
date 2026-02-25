@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ITERATIONS="${ITERATIONS:-8}"
+BENCH_MODE="${BENCH_MODE:-semi-cold}"
 MAVEN_REPO_LOCAL="${MAVEN_REPO_LOCAL:-.m2-local}"
 BASE_DIR="${BASE_DIR:-target/lsp-phase6}"
 OFF_DIR="${BASE_DIR}/off"
@@ -13,6 +14,7 @@ rm -f "${COMPARE_JSON}"
 
 echo "Running baseline benchmark with prewarm OFF..."
 ITERATIONS="${ITERATIONS}" \
+BENCH_MODE="${BENCH_MODE}" \
 OUT_DIR="${OFF_DIR}" \
 MAVEN_REPO_LOCAL="${MAVEN_REPO_LOCAL}" \
 ENFORCE_THRESHOLD=0 \
@@ -21,6 +23,7 @@ APP_JVM_ARGS_EXTRA="-Dapp.lsp.prewarm-on-login=false" \
 
 echo "Running benchmark with prewarm ON..."
 ITERATIONS="${ITERATIONS}" \
+BENCH_MODE="${BENCH_MODE}" \
 OUT_DIR="${ON_DIR}" \
 MAVEN_REPO_LOCAL="${MAVEN_REPO_LOCAL}" \
 ENFORCE_THRESHOLD=0 \
@@ -42,19 +45,24 @@ def median(summary, key):
     return summary.get("metrics", {}).get(key, {}).get("median")
 
 result = {
+    "mode": off.get("mode") or on.get("mode") or "unknown",
     "off": off,
     "on": on,
     "delta": {
         "initializeMsMedian": None,
         "firstDiagnosticsMsMedian": None,
-        "firstCompletionMsMedian": None
+        "firstCompletionMsMedian": None,
+        "completionRequestMsMedian": None,
+        "diagnosticRequestMsMedian": None
     }
 }
 
 for metric_key, delta_key in [
     ("initializeMs", "initializeMsMedian"),
     ("firstDiagnosticsMs", "firstDiagnosticsMsMedian"),
-    ("firstCompletionMs", "firstCompletionMsMedian")
+    ("firstCompletionMs", "firstCompletionMsMedian"),
+    ("completionRequestMs", "completionRequestMsMedian"),
+    ("diagnosticRequestMs", "diagnosticRequestMsMedian")
 ]:
     off_m = median(off, metric_key)
     on_m = median(on, metric_key)

@@ -15,7 +15,10 @@ public class LspProperties {
     private long startupGraceMs = 750;
     private boolean prewarmOnLogin = false;
     private long prewarmTimeoutMs = 8000;
+    private long prewarmCooldownSeconds = 120;
+    private int prewarmSkipSaturationPercent = 90;
     private long idleTtlSeconds = 300;
+    private int minIdleContainers = 0;
     private int maxSessions = 50;
     private int memoryMb = 512;
     private String cpus = "1.0";
@@ -71,12 +74,36 @@ public class LspProperties {
         this.prewarmTimeoutMs = prewarmTimeoutMs;
     }
 
+    public long getPrewarmCooldownSeconds() {
+        return prewarmCooldownSeconds;
+    }
+
+    public void setPrewarmCooldownSeconds(long prewarmCooldownSeconds) {
+        this.prewarmCooldownSeconds = prewarmCooldownSeconds;
+    }
+
+    public int getPrewarmSkipSaturationPercent() {
+        return prewarmSkipSaturationPercent;
+    }
+
+    public void setPrewarmSkipSaturationPercent(int prewarmSkipSaturationPercent) {
+        this.prewarmSkipSaturationPercent = prewarmSkipSaturationPercent;
+    }
+
     public long getIdleTtlSeconds() {
         return idleTtlSeconds;
     }
 
     public void setIdleTtlSeconds(long idleTtlSeconds) {
         this.idleTtlSeconds = idleTtlSeconds;
+    }
+
+    public int getMinIdleContainers() {
+        return minIdleContainers;
+    }
+
+    public void setMinIdleContainers(int minIdleContainers) {
+        this.minIdleContainers = minIdleContainers;
     }
 
     public int getMaxSessions() {

@@ -43,7 +43,10 @@ app:
     startup-grace-ms: 750
     prewarm-on-login: true
     prewarm-timeout-ms: 8000
+    prewarm-cooldown-seconds: 120
+    prewarm-skip-saturation-percent: 90
     idle-ttl-seconds: 180
+    min-idle-containers: 1
     max-sessions: 20
     memory-mb: 512
     cpus: 1.5

@@ -15,9 +15,10 @@ RUNS_JSON="${OUT_DIR}/runs.json"
 HEALTH_JSON="${OUT_DIR}/health.json"
 CLEANUP_HEALTH_JSON="${OUT_DIR}/cleanup-health.json"
 SUMMARY_JSON="${OUT_DIR}/summary.json"
+CONTAINER_DIAG_JSON="${OUT_DIR}/container-diagnostics.json"
 
 mkdir -p "${OUT_DIR}"
-rm -f "${RUNS_JSON}" "${HEALTH_JSON}" "${CLEANUP_HEALTH_JSON}" "${SUMMARY_JSON}" "${OUT_DIR}"/result-*.json
+rm -f "${RUNS_JSON}" "${HEALTH_JSON}" "${CLEANUP_HEALTH_JSON}" "${SUMMARY_JSON}" "${CONTAINER_DIAG_JSON}" "${OUT_DIR}"/result-*.json
 
 APP_PID=""
 CHROMEDRIVER_PID=""
@@ -290,13 +291,13 @@ fetch("/api/lsp/health", { credentials: "include" })
 }
 
 summarize() {
-  python3 - <<'PY' "${RUNS_JSON}" "${HEALTH_JSON}" "${CLEANUP_HEALTH_JSON}" "${SUMMARY_JSON}" "${SESSIONS}"
+  python3 - <<'PY' "${RUNS_JSON}" "${HEALTH_JSON}" "${CLEANUP_HEALTH_JSON}" "${SUMMARY_JSON}" "${SESSIONS}" "${CONTAINER_DIAG_JSON}"
 import json
 import statistics
 import sys
 from math import ceil
 
-runs_path, health_path, cleanup_path, summary_path, sessions = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5])
+runs_path, health_path, cleanup_path, summary_path, sessions, container_diag_path = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5]), sys.argv[6]
 
 with open(runs_path, "r", encoding="utf-8") as fh:
     runs = json.load(fh)
@@ -304,6 +305,8 @@ with open(health_path, "r", encoding="utf-8") as fh:
     health = json.load(fh)
 with open(cleanup_path, "r", encoding="utf-8") as fh:
     cleanup_health = json.load(fh)
+with open(container_diag_path, "r", encoding="utf-8") as fh:
+    container_diag = json.load(fh)
 
 def median(values):
     return statistics.median(values) if values else None
@@ -368,7 +371,8 @@ summary = {
         "activeContainersAfterWait": cleanup_active_containers,
         "activeBridgesAfterWait": cleanup_active_bridges
     },
-    "saturationRejectCount": reject_count
+    "saturationRejectCount": reject_count,
+    "containerDiagnostics": container_diag
 }
 
 with open(summary_path, "w", encoding="utf-8") as fh:
@@ -378,6 +382,43 @@ print(json.dumps(summary, indent=2))
 if not threshold_pass:
     sys.exit(2)
 PY
+}
+
+collect_container_diagnostics() {
+  if ! command -v docker >/dev/null 2>&1; then
+    printf '{"available":false,"reason":"docker-cli-missing"}\n' > "${CONTAINER_DIAG_JSON}"
+    return
+  fi
+  local containers
+  containers="$(docker ps -a --filter "name=proginator-jdtls-" --format '{{.Names}}' 2>/dev/null || true)"
+  if [[ -z "${containers}" ]]; then
+    printf '{"available":true,"containers":[],"oomKilledCount":0,"nonZeroExitCount":0}\n' > "${CONTAINER_DIAG_JSON}"
+    return
+  fi
+  {
+    echo '{"available":true,"containers":['
+    local first=1
+    local oom=0
+    local nonzero=0
+    while IFS= read -r name; do
+      [[ -z "${name}" ]] && continue
+      local inspect
+      inspect="$(docker inspect "${name}" 2>/dev/null | jq -c '.[0].State | {name:"'"${name}"'",status:.Status,exitCode:(.ExitCode//0),oomKilled:(.OOMKilled//false),error:(.Error//"")}' || true)"
+      if [[ -z "${inspect}" ]]; then
+        continue
+      fi
+      local exit_code
+      exit_code="$(echo "${inspect}" | jq -r '.exitCode // 0')"
+      local oom_killed
+      oom_killed="$(echo "${inspect}" | jq -r '.oomKilled // false')"
+      if [[ "${exit_code}" != "0" ]]; then nonzero=$((nonzero + 1)); fi
+      if [[ "${oom_killed}" == "true" ]]; then oom=$((oom + 1)); fi
+      if [[ $first -eq 0 ]]; then echo ','; fi
+      first=0
+      echo "${inspect}"
+    done <<< "${containers}"
+    echo '],"oomKilledCount":'"${oom}"',"nonZeroExitCount":'"${nonzero}"'}'
+  } | tr -d '\n' > "${CONTAINER_DIAG_JSON}"
 }
 
 echo "Starting app on ${BASE_URL}"
@@ -412,6 +453,7 @@ fetch_health_sid "${WD_SESSIONS[0]}" > "${HEALTH_JSON}"
 echo "Waiting for cleanup window..."
 sleep 20
 fetch_health_sid "${WD_SESSIONS[0]}" > "${CLEANUP_HEALTH_JSON}"
+collect_container_diagnostics
 
 echo "Summarizing results"
 summarize

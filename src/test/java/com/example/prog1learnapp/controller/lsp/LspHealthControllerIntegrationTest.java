@@ -47,6 +47,8 @@ class LspHealthControllerIntegrationTest {
                 .andExpect(jsonPath("$.imageAvailable").value(true))
                 .andExpect(jsonPath("$.activeContainers").value(2))
                 .andExpect(jsonPath("$.activeBridges").value(2))
+                .andExpect(jsonPath("$.saturation.acquireIdlePoolHitCount").value(0))
+                .andExpect(jsonPath("$.saturation.idlePoolSize").value(0))
                 .andExpect(jsonPath("$.saturation.maxSessions").value(20))
                 .andExpect(jsonPath("$.saturation.saturationRejectCount").value(0));
     }

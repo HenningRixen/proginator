@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ITERATIONS="${ITERATIONS:-10}"
+BENCH_MODE="${BENCH_MODE:-warm}"
 PORT="${PORT:-8080}"
 BASE_URL="http://127.0.0.1:${PORT}"
 CHROMEDRIVER_PORT="${CHROMEDRIVER_PORT:-9515}"
@@ -12,19 +13,18 @@ APP_LOG="${OUT_DIR}/app.log"
 CHROMEDRIVER_LOG="${OUT_DIR}/chromedriver.log"
 RAW_METRICS_JSONL="${OUT_DIR}/metrics.jsonl"
 SUMMARY_JSON="${OUT_DIR}/summary.json"
+CONTAINER_DIAG_JSON="${OUT_DIR}/container-diagnostics.json"
 ENFORCE_THRESHOLD="${ENFORCE_THRESHOLD:-1}"
 
 mkdir -p "${OUT_DIR}"
-rm -f "${RAW_METRICS_JSONL}" "${SUMMARY_JSON}"
+rm -f "${RAW_METRICS_JSONL}" "${SUMMARY_JSON}" "${CONTAINER_DIAG_JSON}"
 
 APP_PID=""
 CHROMEDRIVER_PID=""
 SESSION_ID=""
 
 cleanup() {
-  if [[ -n "${SESSION_ID}" ]]; then
-    curl -sS -X DELETE "http://127.0.0.1:${CHROMEDRIVER_PORT}/session/${SESSION_ID}" >/dev/null || true
-  fi
+  close_session
   if [[ -n "${CHROMEDRIVER_PID}" ]]; then
     kill "${CHROMEDRIVER_PID}" >/dev/null 2>&1 || true
   fi
@@ -33,6 +33,22 @@ cleanup() {
   fi
 }
 trap cleanup EXIT
+
+close_session() {
+  if [[ -n "${SESSION_ID}" ]]; then
+    curl -sS -X DELETE "http://127.0.0.1:${CHROMEDRIVER_PORT}/session/${SESSION_ID}" >/dev/null || true
+    SESSION_ID=""
+  fi
+}
+
+restart_app() {
+  if [[ -n "${APP_PID}" ]]; then
+    kill "${APP_PID}" >/dev/null 2>&1 || true
+    APP_PID=""
+    sleep 1
+  fi
+  start_app
+}
 
 wait_for_http() {
   local url="$1"
@@ -208,7 +224,16 @@ const uri = workspaceRoot + "/src/Main.java";
 const source = "public class Main { public static void main(String[] args){ System.out.println(\"x\"); System.; } }";
 const brokenSource = "public class Main { public static void main(String[] args){ int y = ; } }";
 const completionPos = source.indexOf("System.") + "System.".length;
-const metrics = { wsOpenMs: null, initializeMs: null, firstDiagnosticsMs: null, firstCompletionMs: null, error: null };
+const metrics = {
+  mode: "'${BENCH_MODE}'",
+  wsOpenMs: null,
+  initializeMs: null,
+  firstDiagnosticsMs: null,
+  firstCompletionMs: null,
+  completionRequestMs: null,
+  diagnosticRequestMs: null,
+  error: null
+};
 let requestId = 1;
 const pending = new Map();
 
@@ -311,6 +336,7 @@ ws.onopen = async () => {
     finish();
     return;
   }
+  metrics.completionRequestMs = Math.round(performance.now() - completionStart);
   metrics.firstCompletionMs = Math.round(performance.now() - t0);
 
   send({
@@ -325,9 +351,11 @@ ws.onopen = async () => {
     }
   });
 
+  const diagnosticStart = performance.now();
   const diagnosticRequestResult = await request("textDocument/diagnostic", {
     textDocument: { uri: uri }
   });
+  metrics.diagnosticRequestMs = Math.round(performance.now() - diagnosticStart);
   if (diagnosticRequestResult && metrics.firstDiagnosticsMs === null) {
     metrics.firstDiagnosticsMs = Math.round(performance.now() - t0);
   }
@@ -347,8 +375,46 @@ ws.onopen = async () => {
   wd_exec_async "${js}" | jq -c '.value'
 }
 
+collect_container_diagnostics() {
+  if ! command -v docker >/dev/null 2>&1; then
+    printf '{"available":false,"reason":"docker-cli-missing"}\n' > "${CONTAINER_DIAG_JSON}"
+    return
+  fi
+  local containers
+  containers="$(docker ps -a --filter "name=proginator-jdtls-" --format '{{.Names}}' 2>/dev/null || true)"
+  if [[ -z "${containers}" ]]; then
+    printf '{"available":true,"containers":[],"oomKilledCount":0,"nonZeroExitCount":0}\n' > "${CONTAINER_DIAG_JSON}"
+    return
+  fi
+
+  {
+    echo '{"available":true,"containers":['
+    local first=1
+    local oom=0
+    local nonzero=0
+    while IFS= read -r name; do
+      [[ -z "${name}" ]] && continue
+      local inspect
+      inspect="$(docker inspect "${name}" 2>/dev/null | jq -c '.[0].State | {name:"'"${name}"'",status:.Status,exitCode:(.ExitCode//0),oomKilled:(.OOMKilled//false),error:(.Error//"")}' || true)"
+      if [[ -z "${inspect}" ]]; then
+        continue
+      fi
+      local exit_code
+      exit_code="$(echo "${inspect}" | jq -r '.exitCode // 0')"
+      local oom_killed
+      oom_killed="$(echo "${inspect}" | jq -r '.oomKilled // false')"
+      if [[ "${exit_code}" != "0" ]]; then nonzero=$((nonzero + 1)); fi
+      if [[ "${oom_killed}" == "true" ]]; then oom=$((oom + 1)); fi
+      if [[ $first -eq 0 ]]; then echo ','; fi
+      first=0
+      echo "${inspect}"
+    done <<< "${containers}"
+    echo '],"oomKilledCount":'"${oom}"',"nonZeroExitCount":'"${nonzero}"'}'
+  } | tr -d '\n' > "${CONTAINER_DIAG_JSON}"
+}
+
 summarize_results() {
-  python3 - <<'PY' "${RAW_METRICS_JSONL}" "${SUMMARY_JSON}" "${ITERATIONS}" "${ENFORCE_THRESHOLD}"
+  python3 - <<'PY' "${RAW_METRICS_JSONL}" "${SUMMARY_JSON}" "${ITERATIONS}" "${ENFORCE_THRESHOLD}" "${BENCH_MODE}" "${CONTAINER_DIAG_JSON}"
 import json
 import statistics
 import sys
@@ -358,6 +424,8 @@ raw_path = sys.argv[1]
 summary_path = sys.argv[2]
 iterations = int(sys.argv[3])
 enforce_threshold = sys.argv[4] == "1"
+bench_mode = sys.argv[5]
+container_diag_path = sys.argv[6]
 
 rows = []
 with open(raw_path, "r", encoding="utf-8") as fh:
@@ -383,7 +451,7 @@ def p95(values):
     return values[idx]
 
 metrics = {}
-for key in ["wsOpenMs", "initializeMs", "firstDiagnosticsMs", "firstCompletionMs"]:
+for key in ["wsOpenMs", "initializeMs", "firstDiagnosticsMs", "firstCompletionMs", "completionRequestMs", "diagnosticRequestMs"]:
     values = metric_values(key)
     metrics[key] = {
         "count": len(values),
@@ -397,14 +465,23 @@ for r in rows:
         complete += 1
 
 success_rate = (complete / iterations) if iterations else 0.0
+container_diag = {}
+try:
+    with open(container_diag_path, "r", encoding="utf-8") as fh:
+        container_diag = json.load(fh)
+except Exception:
+    container_diag = {"available": False, "reason": "read-failed"}
+
 summary = {
+    "mode": bench_mode,
     "iterationsRequested": iterations,
     "iterationsCaptured": len(rows),
     "completeMetricIterations": complete,
     "successRate": success_rate,
     "thresholdPass": success_rate >= 0.90,
     "metrics": metrics,
-    "rawFile": raw_path
+    "rawFile": raw_path,
+    "containerDiagnostics": container_diag
 }
 
 with open(summary_path, "w", encoding="utf-8") as fh:
@@ -420,18 +497,34 @@ echo "Starting app on ${BASE_URL}"
 start_app
 echo "Starting chromedriver on port ${CHROMEDRIVER_PORT}"
 start_chromedriver
-echo "Creating browser session"
-create_session
-echo "Logging in with dev test user"
-login_dev_user
+if [[ "${BENCH_MODE}" == "warm" ]]; then
+  echo "Creating browser session"
+  create_session
+  echo "Logging in with dev test user"
+  login_dev_user
+fi
 
-echo "Running ${ITERATIONS} iterations"
+echo "Running ${ITERATIONS} iterations mode=${BENCH_MODE}"
 for i in $(seq 1 "${ITERATIONS}"); do
+  if [[ "${BENCH_MODE}" == "cold" ]]; then
+    restart_app
+    close_session
+    create_session
+    login_dev_user
+  elif [[ "${BENCH_MODE}" == "semi-cold" ]]; then
+    close_session
+    create_session
+    login_dev_user
+  elif [[ "${BENCH_MODE}" != "warm" ]]; then
+    echo "Unsupported BENCH_MODE=${BENCH_MODE}. Use warm|semi-cold|cold." >&2
+    exit 1
+  fi
   result="$(run_single_iteration)"
   echo "${result}" >> "${RAW_METRICS_JSONL}"
   echo "Iteration ${i}: ${result}"
 done
 
+collect_container_diagnostics
 echo "Computing summary statistics"
 summarize_results
 

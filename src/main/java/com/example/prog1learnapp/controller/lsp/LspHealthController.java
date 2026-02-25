@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
+import static java.util.Map.entry;
 
 @RestController
 @RequestMapping("/api/lsp")
@@ -29,16 +30,21 @@ public class LspHealthController {
                 "imageAvailable", containerService.isImageAvailable(),
                 "activeContainers", containerService.getActiveSessionCount(),
                 "activeBridges", sessionManager.getActiveBridgeCount(),
-                "saturation", Map.of(
-                        "acquireAttempts", saturation.getAcquireAttempts(),
-                        "acquireReuseCount", saturation.getAcquireReuseCount(),
-                        "acquireCreateCount", saturation.getAcquireCreateCount(),
-                        "acquireFailureCount", saturation.getAcquireFailureCount(),
-                        "saturationRejectCount", saturation.getSaturationRejectCount(),
-                        "activeSessions", saturation.getActiveSessions(),
-                        "maxSessions", saturation.getMaxSessions(),
-                        "lastSaturationEpochMs", saturation.getLastSaturationEpochMs(),
-                        "lastSaturationSessionKey", saturation.getLastSaturationSessionKey() == null ? "" : saturation.getLastSaturationSessionKey()
+                "saturation", Map.ofEntries(
+                        entry("acquireAttempts", saturation.getAcquireAttempts()),
+                        entry("acquireReuseCount", saturation.getAcquireReuseCount()),
+                        entry("acquireCreateCount", saturation.getAcquireCreateCount()),
+                        entry("acquireIdlePoolHitCount", saturation.getAcquireIdlePoolHitCount()),
+                        entry("acquireIdlePoolMissCount", saturation.getAcquireIdlePoolMissCount()),
+                        entry("acquireFailureCount", saturation.getAcquireFailureCount()),
+                        entry("saturationRejectCount", saturation.getSaturationRejectCount()),
+                        entry("activeSessions", saturation.getActiveSessions()),
+                        entry("idlePoolSize", saturation.getIdlePoolSize()),
+                        entry("idlePoolCreateCount", saturation.getIdlePoolCreateCount()),
+                        entry("idlePoolEvictCount", saturation.getIdlePoolEvictCount()),
+                        entry("maxSessions", saturation.getMaxSessions()),
+                        entry("lastSaturationEpochMs", saturation.getLastSaturationEpochMs()),
+                        entry("lastSaturationSessionKey", saturation.getLastSaturationSessionKey() == null ? "" : saturation.getLastSaturationSessionKey())
                 )
         );
 

@@ -10,6 +10,7 @@ This document consolidates all LSP performance work completed in this repository
 - Phase 5: capacity tuning and saturation observability
 - Phase 5.1: multi-session saturation validation tooling
 - Phase 6: optional login prewarm and post-phase stability hardening
+- Phase 7: cold-start optimization framework (modes, idle pool, prewarm policy, CI gates)
 
 Primary checklist source:
 - `LSP_PERFORMANCE_EXECUTION_CHECKLIST.md`
@@ -50,6 +51,23 @@ Observed data indicates warm-path strengths but cold/multi-session initialize re
 - Added stale bridge eviction/recreate behavior in `LspSessionManager`.
 - Improved WS close classification for backend outage vs client bad payload.
 - Increased default LSP container memory from `384` to `512` MB.
+
+### Phase 7 implementation status (2026-02-16)
+- Added benchmark mode support (`warm`, `semi-cold`, `cold`) in `scripts/lsp-phase0-benchmark.sh`.
+- Added per-stage metrics in benchmark output:
+  - `completionRequestMs`, `diagnosticRequestMs`
+  - container diagnostics (`exitCode`, `oomKilled`) summary.
+- Added optional idle LSP container pool:
+  - `app.lsp.min-idle-containers`
+  - pool metrics exposed in `/api/lsp/health`.
+- Added selective prewarm policy controls:
+  - `app.lsp.prewarm-cooldown-seconds`
+  - `app.lsp.prewarm-skip-saturation-percent`.
+- Added Phase 7 automation scripts:
+  - `scripts/lsp-phase7-resource-matrix.sh`
+  - `scripts/lsp-phase7-ci-gate.sh`
+  - CI workflow: `.github/workflows/lsp-coldstart-gate.yml`.
+- Cold-path numeric targets remain open pending host/CI runs.
 
 ---
 

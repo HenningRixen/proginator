@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -23,17 +24,24 @@ import java.util.Optional;
 public class JdtLsContainerService {
     private static final Logger log = LoggerFactory.getLogger(JdtLsContainerService.class);
     private static final String CONTAINER_PREFIX = "proginator-jdtls-";
+    private static final String IDLE_POOL_PREFIX = "idle-pool-";
 
     private final LspProperties lspProperties;
     private final Map<String, ContainerSession> sessions = new HashMap<>();
+    private final Map<String, IdleContainer> idleContainers = new HashMap<>();
     private boolean dockerAvailable;
     private long acquireAttempts;
     private long acquireReuseCount;
     private long acquireCreateCount;
+    private long acquireIdlePoolHitCount;
+    private long acquireIdlePoolMissCount;
     private long acquireFailureCount;
     private long saturationRejectCount;
     private long lastSaturationEpochMs;
     private String lastSaturationSessionKey;
+    private long idlePoolCreateCount;
+    private long idlePoolEvictCount;
+    private long idlePoolSeq;
 
     public JdtLsContainerService(LspProperties lspProperties) {
         this.lspProperties = lspProperties;
@@ -50,7 +58,9 @@ public class JdtLsContainerService {
         dockerAvailable = runCommand(List.of("docker", "version")).exitCode == 0;
         if (!dockerAvailable) {
             log.warn("Docker CLI is not available. LSP container mode cannot start.");
+            return;
         }
+        ensureMinIdleContainers();
     }
 
     @PreDestroy
@@ -58,7 +68,11 @@ public class JdtLsContainerService {
         for (ContainerSession session : sessions.values()) {
             removeContainer(session.containerName);
         }
+        for (IdleContainer idleContainer : idleContainers.values()) {
+            removeContainer(idleContainer.containerName);
+        }
         sessions.clear();
+        idleContainers.clear();
     }
 
     public synchronized Optional<String> acquireContainer(String sessionKey) {
@@ -90,6 +104,19 @@ public class JdtLsContainerService {
                     sessionKey, sessions.size(), lspProperties.getMaxSessions(), saturationRejectCount, acquireAttempts);
             return Optional.empty();
         }
+
+        IdleContainer pooled = takeIdleContainer();
+        if (pooled != null) {
+            ContainerSession created = new ContainerSession(pooled.containerName);
+            created.refCount = 1;
+            sessions.put(sessionKey, created);
+            acquireIdlePoolHitCount++;
+            log.debug("LSP acquire idle-hit sessionKey={} container={} activeSessions={} idlePoolSize={} durationMs={}",
+                    sessionKey, pooled.containerName, sessions.size(), idleContainers.size(), elapsedMs(acquireStartedNs));
+            ensureMinIdleContainers();
+            return Optional.of(pooled.containerName);
+        }
+        acquireIdlePoolMissCount++;
 
         String containerName = CONTAINER_PREFIX + Integer.toHexString(sessionKey.hashCode());
         if (!createAndStartContainer(containerName)) {
@@ -151,12 +178,17 @@ public class JdtLsContainerService {
                 acquireAttempts,
                 acquireReuseCount,
                 acquireCreateCount,
+                acquireIdlePoolHitCount,
+                acquireIdlePoolMissCount,
                 acquireFailureCount,
                 saturationRejectCount,
                 sessions.size(),
+                idleContainers.size(),
                 lspProperties.getMaxSessions(),
                 lastSaturationEpochMs,
-                lastSaturationSessionKey
+                lastSaturationSessionKey,
+                idlePoolCreateCount,
+                idlePoolEvictCount
         );
     }
 
@@ -187,11 +219,66 @@ public class JdtLsContainerService {
             }
         }
 
+        evictIdlePoolContainers(ttlMs, now);
+        ensureMinIdleContainers();
+
         log.debug("LSP cleanup evaluated activeSessionsBefore={} removed={} activeSessionsAfter={} durationMs={}",
                 sessions.size() + toRemove.size(),
                 toRemove.size(),
                 sessions.size(),
                 elapsedMs(cleanupStartedNs));
+    }
+
+    private void ensureMinIdleContainers() {
+        if (!dockerAvailable || !lspProperties.isEnabled()) {
+            return;
+        }
+        int target = Math.max(0, lspProperties.getMinIdleContainers());
+        while (idleContainers.size() < target) {
+            String containerName = CONTAINER_PREFIX + IDLE_POOL_PREFIX + Long.toHexString(++idlePoolSeq);
+            if (!createAndStartContainer(containerName)) {
+                log.warn("LSP idle pool create failed container={} idlePoolSize={}", containerName, idleContainers.size());
+                return;
+            }
+            idleContainers.put(containerName, new IdleContainer(containerName));
+            idlePoolCreateCount++;
+            log.debug("LSP idle pool container ready container={} idlePoolSize={}", containerName, idleContainers.size());
+        }
+    }
+
+    private IdleContainer takeIdleContainer() {
+        if (idleContainers.isEmpty()) {
+            return null;
+        }
+        Iterator<Map.Entry<String, IdleContainer>> iterator = idleContainers.entrySet().iterator();
+        Map.Entry<String, IdleContainer> entry = iterator.next();
+        iterator.remove();
+        return entry.getValue();
+    }
+
+    private void evictIdlePoolContainers(long ttlMs, long now) {
+        int target = Math.max(0, lspProperties.getMinIdleContainers());
+        if (idleContainers.size() <= target) {
+            return;
+        }
+        List<String> toRemove = new ArrayList<>();
+        for (Map.Entry<String, IdleContainer> entry : idleContainers.entrySet()) {
+            if (idleContainers.size() - toRemove.size() <= target) {
+                break;
+            }
+            IdleContainer idle = entry.getValue();
+            if (now - idle.lastUsedEpochMs > ttlMs) {
+                toRemove.add(entry.getKey());
+            }
+        }
+        for (String containerName : toRemove) {
+            IdleContainer removed = idleContainers.remove(containerName);
+            if (removed != null) {
+                removeContainer(removed.containerName);
+                idlePoolEvictCount++;
+                log.debug("LSP idle pool evicted container={} idlePoolSize={}", removed.containerName, idleContainers.size());
+            }
+        }
     }
 
     private boolean createAndStartContainer(String containerName) {
@@ -281,16 +368,60 @@ public class JdtLsContainerService {
         }
     }
 
+    private static final class IdleContainer {
+        private final String containerName;
+        private long lastUsedEpochMs = Instant.now().toEpochMilli();
+
+        private IdleContainer(String containerName) {
+            this.containerName = containerName;
+        }
+    }
+
     public static final class SaturationSnapshot {
         private final long acquireAttempts;
         private final long acquireReuseCount;
         private final long acquireCreateCount;
+        private final long acquireIdlePoolHitCount;
+        private final long acquireIdlePoolMissCount;
         private final long acquireFailureCount;
         private final long saturationRejectCount;
         private final int activeSessions;
+        private final int idlePoolSize;
         private final int maxSessions;
         private final long lastSaturationEpochMs;
         private final String lastSaturationSessionKey;
+        private final long idlePoolCreateCount;
+        private final long idlePoolEvictCount;
+
+        public SaturationSnapshot(long acquireAttempts,
+                                  long acquireReuseCount,
+                                  long acquireCreateCount,
+                                  long acquireIdlePoolHitCount,
+                                  long acquireIdlePoolMissCount,
+                                  long acquireFailureCount,
+                                  long saturationRejectCount,
+                                  int activeSessions,
+                                  int idlePoolSize,
+                                  int maxSessions,
+                                  long lastSaturationEpochMs,
+                                  String lastSaturationSessionKey,
+                                  long idlePoolCreateCount,
+                                  long idlePoolEvictCount) {
+            this.acquireAttempts = acquireAttempts;
+            this.acquireReuseCount = acquireReuseCount;
+            this.acquireCreateCount = acquireCreateCount;
+            this.acquireIdlePoolHitCount = acquireIdlePoolHitCount;
+            this.acquireIdlePoolMissCount = acquireIdlePoolMissCount;
+            this.acquireFailureCount = acquireFailureCount;
+            this.saturationRejectCount = saturationRejectCount;
+            this.activeSessions = activeSessions;
+            this.idlePoolSize = idlePoolSize;
+            this.maxSessions = maxSessions;
+            this.lastSaturationEpochMs = lastSaturationEpochMs;
+            this.lastSaturationSessionKey = lastSaturationSessionKey;
+            this.idlePoolCreateCount = idlePoolCreateCount;
+            this.idlePoolEvictCount = idlePoolEvictCount;
+        }
 
         public SaturationSnapshot(long acquireAttempts,
                                   long acquireReuseCount,
@@ -301,15 +432,20 @@ public class JdtLsContainerService {
                                   int maxSessions,
                                   long lastSaturationEpochMs,
                                   String lastSaturationSessionKey) {
-            this.acquireAttempts = acquireAttempts;
-            this.acquireReuseCount = acquireReuseCount;
-            this.acquireCreateCount = acquireCreateCount;
-            this.acquireFailureCount = acquireFailureCount;
-            this.saturationRejectCount = saturationRejectCount;
-            this.activeSessions = activeSessions;
-            this.maxSessions = maxSessions;
-            this.lastSaturationEpochMs = lastSaturationEpochMs;
-            this.lastSaturationSessionKey = lastSaturationSessionKey;
+            this(acquireAttempts,
+                    acquireReuseCount,
+                    acquireCreateCount,
+                    0,
+                    0,
+                    acquireFailureCount,
+                    saturationRejectCount,
+                    activeSessions,
+                    0,
+                    maxSessions,
+                    lastSaturationEpochMs,
+                    lastSaturationSessionKey,
+                    0,
+                    0);
         }
 
         public long getAcquireAttempts() {
@@ -328,6 +464,14 @@ public class JdtLsContainerService {
             return acquireFailureCount;
         }
 
+        public long getAcquireIdlePoolHitCount() {
+            return acquireIdlePoolHitCount;
+        }
+
+        public long getAcquireIdlePoolMissCount() {
+            return acquireIdlePoolMissCount;
+        }
+
         public long getSaturationRejectCount() {
             return saturationRejectCount;
         }
@@ -340,12 +484,24 @@ public class JdtLsContainerService {
             return maxSessions;
         }
 
+        public int getIdlePoolSize() {
+            return idlePoolSize;
+        }
+
         public long getLastSaturationEpochMs() {
             return lastSaturationEpochMs;
         }
 
         public String getLastSaturationSessionKey() {
             return lastSaturationSessionKey;
+        }
+
+        public long getIdlePoolCreateCount() {
+            return idlePoolCreateCount;
+        }
+
+        public long getIdlePoolEvictCount() {
+            return idlePoolEvictCount;
         }
     }
 

@@ -1,0 +1,42 @@
+name: LSP Coldstart Gate
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "src/main/**"
+      - "src/test/**"
+      - "scripts/lsp-phase0-benchmark.sh"
+      - "scripts/lsp-phase7-ci-gate.sh"
+      - ".github/workflows/lsp-coldstart-gate.yml"
+
+jobs:
+  coldstart-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Chrome + Chromedriver
+        uses: browser-actions/setup-chrome@v1
+
+      - name: Build LSP image
+        run: ./build-lsp-docker-image.sh
+
+      - name: Run coldstart CI gate
+        run: |
+          chmod +x scripts/lsp-phase0-benchmark.sh scripts/lsp-phase7-ci-gate.sh
+          ITERATIONS=6 BENCH_MODE=semi-cold MAVEN_REPO_LOCAL="$HOME/.m2/repository" ./scripts/lsp-phase7-ci-gate.sh
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lsp-phase7-ci
+          path: target/lsp-phase7-ci

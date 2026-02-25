@@ -287,3 +287,117 @@ Speed up LSP readiness for interactive exercises (diagnostics + completion + hov
 - [ ] Exercise first `initialize` / diagnostics improves in measured runs.
 - [x] Saturation rejects remain explicit and controlled.
 - [x] Feature can be disabled instantly via `app.lsp.prewarm-on-login=false`.
+
+---
+
+## Phase 7 - Cold-Start Latency Reduction (Targeted)
+
+### Objectives
+- [ ] Reduce cold-start p95 for `initialize`, first diagnostics, and first completion with reproducible measurements.
+- [ ] Keep backend stability and saturation behavior safe while improving first-load user experience.
+
+### Task 7.1 - Split Benchmark Modes and Add Stage Telemetry
+- [x] Add explicit benchmark modes: `cold`, `semi-cold`, `warm`, and emit per-stage timing breakdown.
+
+Code touchpoints:
+- `scripts/lsp-phase0-benchmark.sh`
+- `scripts/lsp-phase6-prewarm-compare.sh`
+- `src/main/java/com/example/prog1learnapp/service/lsp/LspSessionManager.java`
+- `src/main/java/com/example/prog1learnapp/service/lsp/JdtLsContainerService.java`
+- `src/main/java/com/example/prog1learnapp/service/lsp/LspBridge.java`
+
+Test cases:
+- [x] `cold` mode creates fresh app/backend state and captures non-null stage metrics.
+- [x] `semi-cold` mode reuses app process but resets workspace/backend and captures metrics.
+- [x] `warm` mode shows reused backend path and lower container-start contribution.
+- [x] Summary JSON includes p50/p95 per stage and per-mode success rate.
+
+### Task 7.2 - Idle Container Pool for First Acquire
+- [x] Introduce optional minimum idle LSP container pool to avoid first-user create/start delay.
+
+Code touchpoints:
+- `src/main/java/com/example/prog1learnapp/config/lsp/LspProperties.java`
+- `src/main/resources/application.yml`
+- `src/main/java/com/example/prog1learnapp/service/lsp/JdtLsContainerService.java`
+- `src/main/java/com/example/prog1learnapp/controller/lsp/LspHealthController.java`
+
+Test cases:
+- [x] When `min-idle-containers > 0`, first acquire prefers idle container without create/start path.
+- [x] On idle pool miss, fallback create/start still works and is measured.
+- [x] Health payload reports idle pool size/hit/miss counters.
+- [x] Cleanup never removes actively referenced pooled containers.
+
+### Task 7.3 - Harden Bridge Readiness and Dead-Process Recovery
+- [x] Tighten readiness detection and keep stale/dead bridge eviction deterministic.
+
+Code touchpoints:
+- `src/main/java/com/example/prog1learnapp/service/lsp/LspBridge.java`
+- `src/main/java/com/example/prog1learnapp/service/lsp/LspSessionManager.java`
+- `src/main/java/com/example/prog1learnapp/controller/lsp/LspWebSocketHandler.java`
+
+Test cases:
+- [x] Early JDT LS exit reports clear startup failure diagnostics and fails fast.
+- [x] Dead prewarmed bridge is evicted and recreated on next open/forward path.
+- [x] WS error mapping remains correct: backend outage -> `SERVER_ERROR`, invalid/oversized payload -> `BAD_DATA`.
+
+### Task 7.4 - Client Bootstrap Deferral for Cold Path
+- [x] Minimize first-load protocol cost by deferring non-critical requests until ready.
+
+Code touchpoints:
+- `src/main/resources/static/js/exercise-lsp.js`
+- `src/main/resources/templates/exercise.html`
+
+Test cases:
+- [x] Bootstrap order remains deterministic: `initialize -> initialized -> didOpen -> ready`.
+- [x] Completion/hover/signature requests are deferred until ready and no timeout storm occurs.
+- [x] First completion still works immediately after ready and request bursts are bounded.
+
+### Task 7.5 - Selective Prewarm Policy (Not Global Always-On)
+- [x] Add eligibility/cooldown policy for login prewarm to reduce wasted background startups.
+
+Code touchpoints:
+- `src/main/java/com/example/prog1learnapp/config/lsp/LspProperties.java`
+- `src/main/resources/application.yml`
+- `src/main/java/com/example/prog1learnapp/service/lsp/LspPrewarmService.java`
+- `src/main/java/com/example/prog1learnapp/config/LspLoginSuccessHandler.java`
+
+Test cases:
+- [x] Eligible login triggers prewarm once.
+- [x] Cooldown window suppresses repeated prewarms for same session key.
+- [x] Near-saturation path skips prewarm safely and logs reason.
+- [x] Login flow remains non-blocking when policy rejects prewarm.
+
+### Task 7.6 - Resource Matrix and OOM Visibility
+- [x] Run controlled matrix for LSP memory/cpu settings and capture crash/OOM signals in benchmark output.
+
+Code touchpoints:
+- `scripts/lsp-phase0-benchmark.sh`
+- `scripts/lsp-phase6-prewarm-compare.sh`
+- `scripts/lsp-phase5.1-multisession-check.sh`
+- `src/main/java/com/example/prog1learnapp/service/lsp/JdtLsContainerService.java`
+
+Test cases:
+- [x] Benchmark summary records container exit code and `OOMKilled` signals when failures occur.
+- [x] Matrix runs compare `memory-mb` and `cpus` with same iteration count and thresholds.
+- [ ] Selected config improves cold-path p95 without increasing saturation rejects.
+
+### Task 7.7 - CI Regression Gates for Cold Start
+- [x] Add enforceable CI gates for cold-start latency and reliability.
+
+Code touchpoints:
+- `scripts/lsp-phase0-benchmark.sh`
+- `scripts/lsp-phase6-prewarm-compare.sh`
+- `.github/workflows` (or existing CI pipeline file in repo)
+- `docs/LSP_PERFORMANCE_UPDATE_MASTER_REPORT.md`
+
+Test cases:
+- [x] CI fails when cold `initialize p95` regresses beyond configured budget.
+- [x] CI fails when cold-run success rate drops below threshold.
+- [x] CI artifacts always include raw metrics and summarized comparison JSON.
+
+### Phase 7 Exit Criteria
+- [ ] Cold `initializeMs` p95 <= 3000ms on host/CI benchmark profile.
+- [ ] Cold `firstDiagnosticsMs` p95 <= 4000ms on host/CI benchmark profile.
+- [ ] Cold `firstCompletionMs` p95 <= 4500ms on host/CI benchmark profile.
+- [ ] Cold-run success rate >= 99% with deterministic artifacts.
+- [ ] No regression in security and container isolation checklist.

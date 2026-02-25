@@ -17,14 +17,18 @@ public class LspPrewarmService {
 
     private final LspProperties lspProperties;
     private final LspSessionManager lspSessionManager;
+    private final JdtLsContainerService containerService;
     private final Executor prewarmExecutor;
     private final Set<String> inFlightWorkspaceKeys = ConcurrentHashMap.newKeySet();
+    private final ConcurrentHashMap<String, Long> lastPrewarmEpochMsByWorkspaceKey = new ConcurrentHashMap<>();
 
     public LspPrewarmService(LspProperties lspProperties,
                              LspSessionManager lspSessionManager,
+                             JdtLsContainerService containerService,
                              @Qualifier("lspPrewarmExecutor") Executor prewarmExecutor) {
         this.lspProperties = lspProperties;
         this.lspSessionManager = lspSessionManager;
+        this.containerService = containerService;
         this.prewarmExecutor = prewarmExecutor;
     }
 
@@ -39,6 +43,14 @@ public class LspPrewarmService {
         }
 
         String workspaceKey = lspSessionManager.workspaceKeyForSession(principalName, httpSessionId);
+        if (isInCooldown(workspaceKey)) {
+            log.debug("LSP prewarm skip workspaceKey={} reason=cooldown", workspaceKey);
+            return false;
+        }
+        if (isNearSaturation()) {
+            log.debug("LSP prewarm skip workspaceKey={} reason=near-saturation", workspaceKey);
+            return false;
+        }
         if (lspSessionManager.hasBridgeForWorkspaceKey(workspaceKey)) {
             log.debug("LSP prewarm skip workspaceKey={} reason=already-warm", workspaceKey);
             return false;
@@ -49,6 +61,7 @@ public class LspPrewarmService {
         }
 
         prewarmExecutor.execute(() -> runPrewarm(workspaceKey));
+        lastPrewarmEpochMsByWorkspaceKey.put(workspaceKey, System.currentTimeMillis());
         return true;
     }
 
@@ -71,5 +84,28 @@ public class LspPrewarmService {
 
     private long elapsedMs(long startedAtNs) {
         return (System.nanoTime() - startedAtNs) / 1_000_000;
+    }
+
+    private boolean isInCooldown(String workspaceKey) {
+        long cooldownSec = Math.max(0L, lspProperties.getPrewarmCooldownSeconds());
+        if (cooldownSec <= 0L) {
+            return false;
+        }
+        Long last = lastPrewarmEpochMsByWorkspaceKey.get(workspaceKey);
+        if (last == null) {
+            return false;
+        }
+        return (System.currentTimeMillis() - last) < (cooldownSec * 1000L);
+    }
+
+    private boolean isNearSaturation() {
+        JdtLsContainerService.SaturationSnapshot snapshot = containerService.getSaturationSnapshot();
+        int max = snapshot.getMaxSessions();
+        if (max <= 0) {
+            return false;
+        }
+        int thresholdPercent = Math.max(1, Math.min(100, lspProperties.getPrewarmSkipSaturationPercent()));
+        int active = snapshot.getActiveSessions();
+        return (active * 100) >= (max * thresholdPercent);
     }
 }
