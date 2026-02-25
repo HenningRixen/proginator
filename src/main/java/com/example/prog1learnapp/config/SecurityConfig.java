@@ -33,7 +33,7 @@ public class SecurityConfig {
                         .permitAll()
                 )
                 .csrf(csrf -> csrf
-                        .ignoringRequestMatchers("/h2-console/**", "/exercise/*/complete")
+                        .ignoringRequestMatchers("/h2-console/**", "/exercise/*/complete", "/exam/*/complete")
                 )
                 .headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin())
                 );

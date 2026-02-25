@@ -220,6 +220,28 @@ h4 { font-size: 1.125rem; }
     box-shadow: 0 0 0 4px rgba(78, 205, 196, 0.15);
 }
 
+/* Star Rating */
+.star-rating {
+    display: flex;
+}
+.star-rating input[type="radio"] {
+    display: none;
+}
+.star-label {
+    padding: var(--space-1);
+}
+.star-label i {
+    color: var(--gray-400);
+    font-size: 1.5rem;
+    transition: color var(--transition);
+}
+.star-rating input[type="radio"]:checked ~ .star-label i {
+    color: var(--warning) !important;
+}
+.star-rating input[type="radio"]:checked + .star-label i {
+    color: var(--warning) !important;
+}
+
 .btn {
     padding: var(--space-4) var(--space-6);
     border: none;
